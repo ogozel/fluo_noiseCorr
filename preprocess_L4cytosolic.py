@@ -20,8 +20,6 @@ This code can be used to preprocess different datasets ('dataType'):
 - 'ThalamicAxons_L23': simultaneous L2/3 data with thalamic bouton inputs (and behavior)
                     !! The threshold for Max_dff0 cannot be the same !!
                     
-NB: It would be good to discard V1 ROIs which are too small => set a threshold 
-on the size of the ROIs. TODO
 
 """
 
