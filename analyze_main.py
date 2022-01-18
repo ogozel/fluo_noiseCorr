@@ -35,7 +35,7 @@ dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
 dataDepth = dataSpecs.iloc[idxDataset]['Depth']
 pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
-dataNeuropilSub = globalParams.neuropilSub[4] # choose a neuropil factor
+dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor
 
 
 #%% Load data

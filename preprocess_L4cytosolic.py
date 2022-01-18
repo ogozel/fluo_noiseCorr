@@ -46,7 +46,7 @@ filepath = dataDir + 'L4_cytosolic_dataSpecs.hdf'
 dataSpecs = pd.read_hdf(filepath,'L4_cytosolic_dataSpecs')
 
 dataType = 'L4_cytosolic'
-idxDataset = 10
+idxDataset = 0
 bool_discardFluoPlaneSide = False # By default: False; if we need to discard ROIs on the border of the field of view
 
 

@@ -9,7 +9,7 @@ Define global variables
 
 # Path to data
 dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
-processedDataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\processedData\\'
+processedDataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data_postprocessed\\'
 
 # Fluorescence data
 nFramesPerTrial = 25
