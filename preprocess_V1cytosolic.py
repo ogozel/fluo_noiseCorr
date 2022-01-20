@@ -40,10 +40,13 @@ dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
 #%% Parameters of the data to preprocess
 
-filepath = dataDir + 'L4_cytosolic_dataSpecs.hdf'
-dataSpecs = pd.read_hdf(filepath,'L4_cytosolic_dataSpecs')
+### TO CHOOSE ###
+dataType = 'L23_thalamicBoutons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 
-dataType = 'L4_cytosolic'
+filepath = dataDir + dataType + '_dataSpecs.hdf'
+dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
+
+### TO CHOOSE ###
 idxDataset = 0
 bool_discardFluoPlaneSide = False # By default: False; if we need to discard ROIs on the border of the field of view
 
@@ -53,6 +56,8 @@ dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
 dataDepth = dataSpecs.iloc[idxDataset]['Depth']
 pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
+
+### To CHOOSE ###
 dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor
 
 
@@ -149,9 +154,34 @@ if uMotMask is not None:
 
 
 
+#%% Load thalamic bouton data and select good boutons for further analyses
 
-
-
+if dataType=='L23_thalamicBoutons':
+    
+    boutonNeuropilSub = globalParams.neuropilSub[0] # no neuropil subtraction for the thalamic boutons
+    
+    print("Loading thalamic boutons fluorescence data...")
+    nTrialsPerSession,dff0,order,baseline_raw,positionROI_3d = functions_preprocess.loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,boutonNeuropilSub)
+    
+    # Parameters for this dataset
+    nROI_init,nTrials,fluoPlaneWidth,fluoPlaneHeight = functions_preprocess.determine_params(dff0,dataType,positionROI_3d)
+    
+    print("Selecting thalamic boutons...")
+    charROI,charTrials,fluo,fluo_array,data,percBaselineRaw,positionROI,distROI,idxKept = functions_preprocess.selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,order,dff0,positionROI_3d)
+    
+    print("Saving all the data...")
+    savefilepath = globalParams.processedDataDir + dataType +'_boutons_' + dataDate + '_' + \
+        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
+    
+    fluo.to_hdf(savefilepath,key='fluo')
+    charROI.to_hdf(savefilepath,key='charROI')
+    charTrials.to_hdf(savefilepath,key='charTrials')
+    positionROI.to_hdf(savefilepath,key='positionROI')
+    distROI = pd.DataFrame(distROI)
+    distROI.to_hdf(savefilepath,key='distROI')
+    fluoPlaneWidthHeight = np.array([fluoPlaneWidth,fluoPlaneHeight])
+    fluoPlaneWidthHeight = pd.DataFrame(fluoPlaneWidthHeight)
+    fluoPlaneWidthHeight.to_hdf(savefilepath,key='fluoPlaneWidthHeight')
 
 
 

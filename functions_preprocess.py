@@ -26,7 +26,7 @@ import globalParams
 
 
 
-def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,thisPieceNum=None):
+def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub):
     
     nTrialsPerSession = np.zeros(len(dataSessions),dtype=int)
     for s in range(len(dataSessions)):
@@ -40,62 +40,32 @@ def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,
                     '\\ROI_' + dataDate + '_RM_S' + str(sessionNumber) + \
                         '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat')
                 
-        elif (dataType == 'ThalamicAxons_L23') & (thisPieceNum==None): # data already in a single piece
+        elif dataType == 'L23_thalamicBoutons':
             filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
                                 dataMouse + '\\' + dataDepth + '\\L23\\S' + str(sessionNumber) + \
                                     '\\ROI_' + dataDate + '_RM_S' + str(sessionNumber) + \
                                             '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat')
-            
-            # # in that case: combine the 4 pieces
-            # for pieceNum in range(1,5): # data is separated in 4 pieces
-            #     filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-            #                     dataMouse + '\\' + dataDepth + '\\L23\\S' + str(sessionNumber) + \
-            #                         '\\piece' + str(pieceNum) + '\\ROI_' + dataDate + \
-            #                             '_RM_piece' + str(pieceNum) + '_S' + str(sessionNumber) + \
-            #                                 '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat')
-                    
-        elif (dataType == 'ThalamicAxons_L23') & (thisPieceNum!=None): # in that case: load only 1 piece
-            filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-                                dataMouse + '\\' + dataDepth + '\\L23\\S' + str(sessionNumber) + \
-                                    '\\piece' + str(thisPieceNum) + '\\ROI_' + dataDate + \
-                                        '_RM_piece' + str(thisPieceNum) + '_S' + str(sessionNumber) + \
-                                            '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat')
+        
         
         this_dff0 = []
         this_order = []
         this_baselineRaw = []
         this_positionROI3d = []
-        for filePartNum in range(0,len(filepath)):
-            arrays = {}
-            f = h5py.File(filepath[filePartNum],'r')
-            for k, v in f.items():
-                arrays[k] = np.array(v)
-            
-            if filePartNum==0:
-                this_dff0 = arrays['dff0'] # fluorescence data
-                this_order = arrays['order'][0] # the orientation for each frame (also blank frames)
-                if dataType == 'L4_cytosolic':
-                    this_baselineRaw = arrays['baseline_raw']
-                elif dataType == 'ThalamicAxons_L23': ############################################################## !!!!!!!!!
-                    this_baselineRaw = arrays['baseline_vector_allstacks'][:,0]
-                this_positionROI3d = arrays['bw']
-                # if (dataType == 'ThalamicAxons_L23') & (thisPieceNum==None): ##################################### !!!!!!!!!
-                #     this_positionROI3d = np.pad(this_positionROI3d,((0,0),(0,1024),(0,1024))) # piece1
-            else:
-                this_dff0 = np.concatenate((this_dff0,arrays['dff0']),axis=0)
-                this_baselineRaw = np.concatenate((this_baselineRaw,arrays['baseline_raw']),axis=0)
-                if filePartNum==1:
-                    tmp = np.pad(arrays['bw'],((0,0),(1024,0),(0,1024))) # piece2
-                if filePartNum==2:
-                    tmp = np.pad(arrays['bw'],((0,0),(0,1024),(1024,0))) # piece3
-                if filePartNum==3:
-                    tmp = np.pad(arrays['bw'],((0,0),(1024,0),(1024,0))) # piece4
-                this_positionROI3d = np.concatenate((this_positionROI3d,tmp),axis=0)
+
+        arrays = {}
+        f = h5py.File(filepath[0],'r')
+        for k, v in f.items():
+            arrays[k] = np.array(v)
         
+        this_dff0 = arrays['dff0'] # fluorescence data
+        this_order = arrays['order'][0] # the orientation for each frame (also blank frames)
         if dataType == 'L4_cytosolic':
+            this_baselineRaw = arrays['baseline_raw']
             nTrialsPerSession[s] = int(this_dff0.shape[1]/globalParams.nFramesPerTrial)
-        elif dataType == 'ThalamicAxons_L23':
+        elif dataType == 'L23_thalamicBoutons': ############################################################## !!!!!!!!!
+            this_baselineRaw = arrays['baseline_vector_allstacks'][:,0]
             nTrialsPerSession[s] = int(this_dff0.shape[1]/30) # 30 frames/trial
+        this_positionROI3d = arrays['bw']
         
         # Concatenate the data
         if s==0:
@@ -121,7 +91,7 @@ def determine_params(dff0,dataType,positionROI_3d):
     nFrames = dff0.shape[1] # number of fluorescence frames
     if dataType == 'L4_cytosolic':
         nTrials = int(nFrames/globalParams.nFramesPerTrial)
-    elif dataType == 'ThalamicAxons_L23':
+    elif dataType == 'L23_thalamicBoutons':
         nTrials = int(nFrames/30)
     fluoPlaneWidth = positionROI_3d.shape[1]
     fluoPlaneHeight = positionROI_3d.shape[2]
@@ -138,7 +108,7 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,or
     nFrames = dff0.shape[1] # number of fluorescence frames
     if dataType == 'L4_cytosolic':
         nTrials = int(nFrames/globalParams.nFramesPerTrial)
-    elif dataType == 'ThalamicAxons_L23':
+    elif dataType == 'L23_thalamicBoutons':
         nTrials = int(nFrames/30)
     fluoPlaneWidth = positionROI_3d.shape[1]
     fluoPlaneHeight = positionROI_3d.shape[2]
@@ -160,7 +130,7 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,or
         charTrials['TrialFrame'] = np.tile(np.arange(globalParams.nFramesPerTrial),nTrials)
         tmp = np.concatenate((np.repeat(['Blank'],globalParams.nBlankFrames),\
                               np.repeat(['Stimulus'],globalParams.nStimFrames)))
-    elif dataType == 'ThalamicAxons_L23':
+    elif dataType == 'L23_thalamicBoutons':
         charTrials = pd.DataFrame(np.repeat(dataSessions,30*(nTrialsPerSession)),columns=['Session'])
         charTrials['Trial'] = np.repeat(np.arange(nTrials),30)
         charTrials['TrialFrame'] = np.tile(np.arange(30),nTrials)
@@ -227,7 +197,7 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,or
     charROI['farEnough'] = np.array([False if i in idxROItooClose else True for i in range(nROI_init)])
     
     # (3bis) Are ROIs big enough (in terms of number of pixels)?
-    if dataType == 'ThalamicAxons_L23':
+    if dataType == 'L23_thalamicBoutons':
         charROI['bigEnough'] = np.array([False if np.array(charROI['Size'])[i]<1000 else True for i in range(nROI_init)])
     
     # (4) Set all negative df/f0 values to zero
@@ -263,13 +233,13 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,or
     # (2) Are ROIs responsive enough?
     if dataType=='L4_cytosolic':
         charROI['responsiveEnough'] = charROI['MaxDff0']>globalParams.threshold_dff0
-    elif dataType=='ThalamicAxons_L23':
+    elif dataType=='L23_thalamicBoutons':
         charROI['responsiveEnough'] = charROI['MaxDff0']>0.1 #1.0
     
     # Determine which ROIs we keep for the analyses
     if dataType=='L4_cytosolic':
         charROI['keptROI'] = charROI['activeEnough'] & charROI['responsiveEnough'] & charROI['farEnough']
-    elif dataType=='ThalamicAxons_L23':
+    elif dataType=='L23_thalamicBoutons':
         charROI['keptROI'] = charROI['activeEnough'] & charROI['responsiveEnough'] & charROI['farEnough'] & charROI['bigEnough']
     
     
@@ -298,7 +268,7 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,or
     charROI = charROI[charROI['keptROI']==True].reset_index()
     if dataType=='L4_cytosolic':
         charROI = charROI.drop(columns=['index','farEnough','activeEnough','responsiveEnough','keptROI'])
-    elif dataType=='ThalamicAxons_L23':
+    elif dataType=='L23_thalamicBoutons':
         charROI = charROI.drop(columns=['index','farEnough','bigEnough','activeEnough','responsiveEnough','keptROI'])
     data = pd.concat([charTrials, fluo],axis=1)
     
@@ -506,7 +476,7 @@ def plot_avgFluoPerOri(dataType,data):
     
     if dataType=='L4_cytosolic':
         tmpTime = np.arange(25)+1
-    elif dataType=='ThalamicAxons_L23':
+    elif dataType=='L23_thalamicBoutons':
         tmpTime = np.arange(30)+1
     avgPerOri = data.drop(['Session','Trial','FrameType'],axis=1).groupby(['TrialFrame','Orientation']).mean()
     avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
@@ -699,18 +669,19 @@ def preprocess_motion(dataType,dataDate,dataMouse,dataDepth,path,charTrials):
 
 
 
-def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,pieceNum):
+def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub):
     
     nTrialsPerSession = np.zeros(len(dataSessions),dtype=int)
     
-    for s in range(len(dataSessions)):
-    
+    for s in range(len(dataSessions)): #### !!!!!!!!!!!!!!!!!
+        
+        print('Loading session '+ str(s+1) +' out of '+str(len(dataSessions)))  
+        
         sessionNumber = dataSessions[s]
         
         filepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-                    dataMouse + '\\' + dataDepth + '\\ThalamicAxons\\S' + str(sessionNumber) + \
-                        '\\piece' + str(pieceNum) + '\\ROI_' + dataDate + \
-                            '_RM_piece' + str(pieceNum) + '_S' + str(sessionNumber) + \
+                    dataMouse + '\\' + dataDepth + '\\Boutons\\ROI_' + dataDate + \
+                            '_RM_S' + str(sessionNumber) + \
                                 '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat'
         
         arrays = {}
@@ -721,7 +692,8 @@ def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeurop
             
         this_dff0 = arrays['dff0'] # fluorescence data
         this_order = arrays['order'][0] # the orientation for each frame (also blank frames)
-        this_baselineRaw = arrays['baseline_raw']
+        #this_baselineRaw = arrays['baseline_raw'] #######################!!!
+        this_baselineRaw = arrays['baseline_vector_allstacks'][:,0]
         this_positionROI3d = arrays['bw']
             
         nTrialsPerSession[s] = int(this_dff0.shape[1]/30) # 30 frames/trial
@@ -730,12 +702,13 @@ def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeurop
         if s==0:
             dff0 = this_dff0
             order = this_order
-            baseline_raw = this_baselineRaw
+            baseline_raw = this_baselineRaw[:,np.newaxis]
             positionROI_3d = this_positionROI3d  # The ROI positions do not change over sessions
         else:
             dff0 = np.concatenate((dff0,this_dff0),axis=1)
             order = np.concatenate((order,this_order),axis=0)
-            baseline_raw = np.concatenate((baseline_raw,this_baselineRaw),axis=1)
+            #baseline_raw = np.concatenate((baseline_raw[:,np.newaxis],this_baselineRaw[:,np.newaxis]),axis=1)
+            baseline_raw = np.concatenate((baseline_raw,this_baselineRaw[:,np.newaxis]),axis=1)
                         
             
     return nTrialsPerSession,dff0,order,baseline_raw,positionROI_3d
@@ -746,11 +719,11 @@ def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeurop
 def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_raw,order,dff0,positionROI_3d):
     
     # Parameters
-    nROI_init = dff0.shape[0] # number of neurons before preprocessing
+    nROI_init = dff0.shape[0] # number of boutons before preprocessing
     nFrames = dff0.shape[1] # number of fluorescence frames
     if dataType == 'L4_cytosolic':
         nTrials = int(nFrames/globalParams.nFramesPerTrial)
-    elif dataType == 'ThalamicAxons_L23':
+    elif dataType == 'L23_thalamicBoutons':
         nTrials = int(nFrames/30)
     fluoPlaneWidth = positionROI_3d.shape[1]
     fluoPlaneHeight = positionROI_3d.shape[2]
@@ -774,7 +747,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
         charTrials['TrialFrame'] = np.tile(np.arange(globalParams.nFramesPerTrial),nTrials)
         tmp = np.concatenate((np.repeat(['Blank'],globalParams.nBlankFrames),\
                               np.repeat(['Stimulus'],globalParams.nStimFrames)))
-    elif dataType == 'ThalamicAxons_L23':
+    elif dataType == 'L23_thalamicBoutons':
         charTrials = pd.DataFrame(np.repeat(dataSessions,30*(nTrialsPerSession)),columns=['Session'])
         charTrials['Trial'] = np.repeat(np.arange(nTrials),30)
         charTrials['TrialFrame'] = np.tile(np.arange(30),nTrials)
@@ -863,7 +836,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
     # (2) Are ROIs responsive enough?
     if dataType=='L4_cytosolic':
         charROI['responsiveEnough'] = charROI['MaxDff0']>globalParams.threshold_dff0
-    elif dataType=='ThalamicAxons_L23':
+    elif dataType=='L23_thalamicBoutons':
         charROI['responsiveEnough'] = charROI['MaxDff0']>10.0 # !!! hard-coded: before I had put 1.0 !!!
     
     # # (3) Are ROIs far enough? (if not: discard smallest one of the pair)
@@ -877,10 +850,10 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
     #charROI['keptROI'] = charROI['activeEnough'] & charROI['responsiveEnough'] & charROI['farEnough'] 
     charROI['keptROI'] = charROI['activeEnough'] & charROI['responsiveEnough']
     
-    # Plot all initial ROI
+    # Plot all initial thalamic boutons
     plt.figure()
     plt.imshow(np.transpose(np.sum(positionROI_3d,axis=0)))
-    plt.title('All original ROIs')    
+    plt.title('All original thalamic boutons')    
     
     # Discard bad ROIs
     idxKept = np.squeeze(np.array(np.where(np.array(charROI['keptROI']))))
@@ -891,9 +864,8 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
     distROI = distROI[idxKept,:][:,idxKept]
     data = pd.concat([charTrials, fluo],axis=1)
 
-    charROI = charROI[charROI['keptROI']==True].reset_index()
-    #charROI = charROI.drop(columns=['index','farEnough','activeEnough','responsiveEnough','keptROI'])
-    charROI = charROI.drop(columns=['index','baseline_raw_nonzero','activeEnough','responsiveEnough','keptROI'])
+    charROI = charROI[charROI['keptROI']==True].reset_index() ############### !!!!!!!!!!!
+    charROI = charROI.drop(columns=['index','baseline_raw_nonzero','activeEnough','responsiveEnough','keptROI']) ############### !!!!!!!!!!!
     
     # Number of ROIs we keep after preprocessing
     nROI = charROI.shape[0]
@@ -926,7 +898,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
     # Plot all kept ROIs at the end of preprocessing
     plt.figure()
     plt.imshow(np.transpose(np.sum(positionROI_3d,axis=0)))
-    plt.title('ROIs kept after preprocessing')
+    plt.title('Thalamic boutons kept after preprocessing')
     
     # Plot all kept ROIs with their selectivity
     plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
@@ -935,7 +907,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,baseline_
     plot_avgFluoPerOri(dataType,data)
     
     
-    return charROI,charTrials,fluo,fluo_array,data,percBaselineRaw,positionROI,positionROI_3d,distROI,idxKept
+    return charROI,charTrials,fluo,fluo_array,data,percBaselineRaw,positionROI,distROI,idxKept
 
 
 
