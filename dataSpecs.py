@@ -46,23 +46,21 @@ L4_cytosolic_dataSpecs.to_hdf(savefilepath,key='L4_cytosolic_dataSpecs')
 
 #%% L2/3 cytosolic data + thalamic bouton inputs
 
+# NB: Dataset '20210106_Y45' does not have the thalamic boutons
+
 L23_thalamicBoutons_dataSpecs = pd.DataFrame()
 
-L23_thalamicBoutons_dataSpecs['Date'] = ['20210105','20210116','20210116']
-# '20210106' discarded because problem with motion registration
+L23_thalamicBoutons_dataSpecs['Date'] = ['20210105','20210106','20210116','20210116']
 
-L23_thalamicBoutons_dataSpecs['Mouse'] = ['Y45','Y43','Y43']
-# 'Y45'
+L23_thalamicBoutons_dataSpecs['Mouse'] = ['Y45','Y45','Y43','Y43']
 
-L23_thalamicBoutons_dataSpecs['Depth'] = ['Z150','Z100','Z120']
-# 'Z120'
+L23_thalamicBoutons_dataSpecs['Depth'] = ['Z150','Z120','Z100','Z120']
 
-L23_thalamicBoutons_dataSpecs['Sessions'] = [[2,3,4,5,6],[1,2,3,4,5],[1,2,3,4,5]]
-# [1,2,3,4,5]
+L23_thalamicBoutons_dataSpecs['Sessions'] = [[2,3,4,5,6],[1,2,3,4,5],[1,2,3,4,5],[1,2,3,4,5]]
 
-L23_thalamicBoutons_dataSpecs['PixelSize'] = [0.3, 0.3, 0.3]
+L23_thalamicBoutons_dataSpecs['PixelSize'] = [0.3, 0.3, 0.3, 0.3]
 
-L23_thalamicBoutons_dataSpecs['FrameRate'] = [7.6, 7.6, 7.6]
+L23_thalamicBoutons_dataSpecs['FrameRate'] = [7.6, 7.6, 7.6, 7.6]
 
 
 savefilepath = dataDir + 'L23_thalamicBoutons_dataSpecs.hdf'

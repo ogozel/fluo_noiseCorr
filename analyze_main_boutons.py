@@ -19,42 +19,36 @@ import globalParams
 import functions_analyze
 import functions_preprocess
 
-dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
 
 #%% Parameters of the data to preprocess
 
-filepath = dataDir + 'L23_thalamicBoutons_dataSpecs.hdf'
-dataSpecs = pd.read_hdf(filepath,'L23_thalamicBoutons_dataSpecs')
+### TO CHOOSE ###
+dataType = 'L23_thalamicBoutons' # 'L23_thalamicBoutons'
 
-dataType = 'ThalamicAxons_L23'
+filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
+dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
+
+### TO CHOOSE ###
 idxDataset = 3
-
 
 dataDate = dataSpecs.iloc[idxDataset]['Date']
 dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
 dataDepth = dataSpecs.iloc[idxDataset]['Depth']
 pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
-dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor for the L2/3 cytosolic data
-dataNeuropilSub_boutons = globalParams.neuropilSub[0] # choose a neuropil factor for the thalamic bouton data
 
+### To CHOOSE ###
+dataNeuropilSub = globalParams.neuropilSub[0]
 
-
-#pieceNum = 1234
 
 
 #%% Load data
 
-#filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
-#        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_V1andBoutons_piece' + str(pieceNum) + '.hdf'
+filepath = globalParams.processedDataDir + dataType +'_boutons_' + dataDate + '_' + \
+        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
 
-#filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
-#            dataMouse + '_' + dataDepth + '_V1nF0d75_LGNnF0_V1andBoutons_piece' + str(pieceNum) + '.hdf'
-filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
-            dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '.hdf'
-
-# V1 data
+# Thalamic bouton data
 fluo = pd.read_hdf(filepath,'fluo')
 charROI = pd.read_hdf(filepath,'charROI')
 charTrials = pd.read_hdf(filepath,'charTrials')
@@ -67,56 +61,37 @@ fluoPlaneWidthHeight = pd.read_hdf(filepath,'fluoPlaneWidthHeight')
 fluoPlaneWidth = np.array(fluoPlaneWidthHeight)[0].item()
 fluoPlaneHeight = np.array(fluoPlaneWidthHeight)[1].item()
 
-# # Boutons data
-# fluo_boutons = pd.read_hdf(filepath,'fluo_boutons')
-# charBoutons = pd.read_hdf(filepath,'charROI_boutons')
-# charTrials_boutons = pd.read_hdf(filepath,'charTrials_boutons')
-# positionBoutons = pd.read_hdf(filepath,'positionROI_boutons')
-# distBoutons = pd.read_hdf(filepath,'distROI_boutons')
-# nBoutons = fluo_boutons.shape[1]
-# #idxKept_boutons = np.squeeze(np.asarray(pd.read_hdf(filepath,'idxKept_boutons')))
 
+# if 'pupilArea' in charTrials:
+#     bool_pupil = True
+# else:
+#     bool_pupil = False
 
-if 'pupilArea' in charTrials:
-    bool_pupil = True
-else:
-    bool_pupil = False
-
-store = pd.HDFStore(filepath,mode='r')
-if 'motAvg' in store:
-    bool_motion = True
-    motAvg = pd.read_hdf(filepath,'motAvg')
-    uMotMask = pd.read_hdf(filepath,'uMotMask')
-else:
-    bool_motion = False
+# store = pd.HDFStore(filepath,mode='r')
+# if 'motAvg' in store:
+#     bool_motion = True
+#     motAvg = pd.read_hdf(filepath,'motAvg')
+#     uMotMask = pd.read_hdf(filepath,'uMotMask')
+# else:
+#     bool_motion = False
 
 
 
 
 #%% Plot ROIs with their selectivity
 
-
-# V1
 functions_preprocess.plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
 
-# Thalamic boutons
-functions_preprocess.plot_ROIwithSelectivity(charBoutons,positionBoutons,fluoPlaneWidth,fluoPlaneHeight)
-
-# L2/3 ROIs and thalamic boutons
-functions_preprocess.plot_ROIwithBoutons(positionROI,positionBoutons,fluoPlaneWidth,fluoPlaneHeight)
-
-
-#%% Determine what is the percentage of OS V1 ROI and the percentage of OS thalamic boutons
-
 percROI_OS = 100*(charROI[charROI['OS']==True].shape[0] / charROI.shape[0])
-percBouton_OS = 100*(charBoutons[charBoutons['OS']==True].shape[0] / charBoutons.shape[0])
-print(str(np.around(percROI_OS))+'% ROIs are OS, and '+str(np.around(percBouton_OS))+'% thalamic boutons are OS.')
+print(str(np.around(percROI_OS))+'% thalamic boutons are orientation-selective (OS)')
+
+# # L2/3 ROIs and thalamic boutons
+# functions_preprocess.plot_ROIwithBoutons(positionROI,positionBoutons,fluoPlaneWidth,fluoPlaneHeight)
 
 
 
 #%% Plot the pairwise correlation as a function of pairwise distance
 
-## For L2/3 ROIs
 idxOS = np.squeeze(np.array(np.where(np.array(charROI['OS']))))
 thisDistROI = np.array(distROI)[idxOS,:][:,idxOS]
 
@@ -124,32 +99,156 @@ thisDistROI = np.array(distROI)[idxOS,:][:,idxOS]
 idxStim = np.squeeze(np.array(np.where(charTrials['FrameType']=='Stimulus')))
 thisFluo = np.array(fluo)[idxStim,:][:,idxOS]
 
-binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,binSize=10,title='L2/3 - Evoked - OS only')
+binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,binSize=10,title='Thalamic boutons - Evoked - OS only')
 
 
 # Spontaneous frames (OS neurons only)
 idxBlank = np.squeeze(np.array(np.where(charTrials['FrameType']=='Blank')))
 thisFluo = np.array(fluo)[idxBlank,:][:,idxOS]
 
-binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,binSize=10,title='L2/3 - Spontaneous - OS only')
-
-
-## For thalamic bouton inputs
-idxOS = np.squeeze(np.array(np.where(np.array(charBoutons['OS']))))
-thisDistROI = np.array(distBoutons)[idxOS,:][:,idxOS]
-
-# Evoked frames (OS neurons only)
-idxStim = np.squeeze(np.array(np.where(charTrials['FrameType']=='Stimulus')))
-thisFluo = np.array(fluo_boutons)[idxStim,:][:,idxOS]
-
-binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,binSize=10,title='Thalamic boutons - Evoked - OS only')
-
-
-# Spontaneous frames (OS neurons only)
-idxBlank = np.squeeze(np.array(np.where(charTrials['FrameType']=='Blank')))
-thisFluo = np.array(fluo_boutons)[idxBlank,:][:,idxOS]
-
 binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,binSize=10,title='Thalamic boutons - Spontaneous - OS only')
+
+
+
+#%% Link together thalamic boutons that arise from the same axon using a correlation-based hierarchical clustering procedure
+# (Liang et al., 2018; STAR Methods)
+
+# Pick only blank frames
+tmpBF = np.where(charTrials['FrameType']=='Blank')[0]
+fluoBF = fluo.iloc[tmpBF]
+
+# Compute the mean and standard deviation
+fluoBF_mean = fluoBF.mean()
+fluoBF_std = fluoBF.std()
+
+# 3 standard deviations above and below the mean
+thresh_below = fluoBF_mean - fluoBF_std
+thresh_above = fluoBF_mean + fluoBF_std
+
+# mask_below = fluoBF[fluoBF<thresh_below]
+# mask_above = fluoBF[fluoBF>thresh_above]
+mask_below_above = fluoBF[(fluoBF<thresh_below) | (fluoBF>thresh_above)]
+
+# Compute Pearson correlation for each pair of thalamic boutons (does not take into account nan values)
+corr_matrix_full = mask_below_above.corr() # to keep all the pairwise correlation values
+corr_matrix = mask_below_above.corr() # used and modified later to do the clustering
+
+# Set diagonal to nan
+np.fill_diagonal(corr_matrix.values, np.nan)
+
+# # Find pairwise correlations higher than 0.7
+# idx_higherThan0d7 = np.where(corr_matrix>0.7)
+
+# Find pairwise correlations higher than 2.5 standard deviations above the mean value of all the coefficients between this bouton and all others
+corr_meanPerBouton = corr_matrix.mean()
+corr_stdPerBouton = corr_matrix.std()
+thresh2 = corr_meanPerBouton+2.5*corr_stdPerBouton
+# idx_higherThan2d5stdMean = np.where(corr_matrix>thresh2)
+
+# Set pairwise correlation coefficients to 0 if they do not exceed 0.7 or 2.5 std above the mean corr between this bouton and all others
+# corr_matrix_thresh = corr_matrix
+# corr_matrix_thresh[(corr_matrix_thresh<=0.7)&(corr_matrix_thresh<=thresh2)] = 0
+corr_matrix[(corr_matrix<=0.7)&(corr_matrix<=thresh2)] = 0
+
+# Set diagonal back to 1
+np.fill_diagonal(corr_matrix.values, 1.0)
+
+# Set nan elements to 0
+corr_matrix[corr_matrix.isnull()] = 0
+
+# Compute cosyne similarity between each pair of boutons
+from sklearn.metrics.pairwise import cosine_similarity
+cosyneSim = cosine_similarity(corr_matrix)
+
+# Compute pairwise distance, defined as ‘1 – cosine similarity’
+pairDist = 1 - cosyneSim
+np.fill_diagonal(pairDist, 0.0) # take care of approximation errors
+
+# Perform hierarchy clustering using the weighted-pair group method with arithmetic means (WPGMA) algorithm
+from scipy.cluster.hierarchy import linkage
+from scipy.spatial.distance import squareform
+condensedPairDist = squareform(pairDist)
+
+thisClustering = linkage(condensedPairDist, method='weighted')
+
+from scipy.cluster.hierarchy import cut_tree
+cutree = cut_tree(thisClustering, height=0.85)
+
+# Number of clusters (= putative axons)
+nAxons = np.max(cutree)
+
+
+#%% Analyze the clusters of thalamic boutons (=putative axons)
+
+# Create a dataframe with the info concerning the clusters of boutons
+charAxons = pd.DataFrame(index=np.arange(nAxons),columns=['nBoutons','pairCorr','boutonIdx','pairCorrWithOtherClusters',\
+                                                          'pairDist','pairDistWithOtherClusters'])
+
+# Compute the mean pairwise Pearson correlation within each cluster and between each cluster
+for a in range(0,nAxons):
+    # Within-cluster
+    tmpidx = np.where(cutree==a)[0]
+    thisNBoutons = len(tmpidx) # number of boutons within the cluster
+    tmpFullPearsonCorr = np.array(corr_matrix_full.iloc[tmpidx][tmpidx]) # only the pairwise correlations between boutons of the same cluster
+    tmpPearsonCorr = tmpFullPearsonCorr[np.triu_indices(thisNBoutons, k = 1)] # pairwise corr between boutons assigned to the same cluster
+    tmpPairDist = np.array(distROI)[tmpidx,:][:,tmpidx]
+    tmpPairDist = tmpPairDist[np.triu_indices(thisNBoutons, k = 1)]
+    
+    # Between clusters
+    tmpNONidx = np.setdiff1d(np.arange(nROI),tmpidx)
+    tmpBtwPearsonCorr = np.array(corr_matrix_full.iloc[tmpidx][tmpNONidx]) # only the pairwise correlations between boutons belonging to different clusters
+    tmpBtwPairDist = np.array(distROI)[tmpidx,:][:,tmpNONidx]
+    
+    # Write the data in the dataframe
+    charAxons.iloc[a]['nBoutons'] = thisNBoutons
+    charAxons.iloc[a]['pairCorr'] = tmpPearsonCorr
+    charAxons.iloc[a]['boutonIdx'] = tmpidx
+    charAxons.iloc[a]['pairCorrWithOtherClusters'] = np.concatenate(tmpBtwPearsonCorr)
+    charAxons.iloc[a]['pairDist'] = tmpPairDist
+    charAxons.iloc[a]['pairDistWithOtherClusters'] = np.concatenate(tmpBtwPairDist)
+
+
+# Plot the distribution of number of boutons per axon
+plt.figure()
+charAxons['nBoutons'].hist(bins=np.arange(0.5,1.5+charAxons['nBoutons'].max()),grid=False)
+plt.xlabel('Number of boutons per cluster')
+#plt.xticks(np.arange(1,1+charAxons['nBoutons'].max()))
+plt.ylabel('Nunber of counts')
+
+
+# Plot the normalized distribution of pairwise correlation within-cluster (normalized such that the area under the curve is equal to 1)
+plt.figure()
+pairCorrWithin = np.concatenate(charAxons['pairCorr'])
+plt.hist(pairCorrWithin,bins=np.arange(-1,1+0.1,0.1),density=True)
+plt.xlabel('Pairwise correlation within cluster')
+plt.ylabel('Density')
+
+# Plot the normalized distribution of pairwise correlation between clusters (normalized such that the area under the curve is equal to 1)
+plt.figure()
+pairCorrBtw = np.concatenate(charAxons['pairCorrWithOtherClusters'])
+plt.hist(pairCorrBtw,bins=np.arange(-1,1+0.1,0.1),density=True)
+plt.xlabel('Pairwise correlation between clusters')
+plt.ylabel('Density')
+
+# Plot the normalized distribution of pairwise correlation within-cluster and between clusters
+plt.figure()
+plt.hist(pairCorrWithin,bins=np.arange(-1,1+0.1,0.1),density=True,alpha = 0.5)
+plt.hist(pairCorrBtw,bins=np.arange(-1,1+0.1,0.1),density=True,alpha=0.5)
+plt.xlabel('Pairwise correlations')
+plt.ylabel('Density')
+plt.legend(['Within-cluster','Between clusters'])
+
+# Plot the pairwise distance within-cluster and between clusters
+plt.figure()
+plt.hist(np.concatenate(charAxons['pairDist']),bins=np.arange(0,500,50),density=True,alpha = 0.5)
+plt.hist(np.concatenate(charAxons['pairDistWithOtherClusters']),bins=np.arange(0,500,50),density=True,alpha=0.5)
+plt.xlabel('Pairwise distances')
+plt.ylabel('Density')
+plt.legend(['Within-cluster','Between clusters'])
+
+
+
+
 
 
 #%% Compute the neural PCs
@@ -161,15 +260,6 @@ thisFluo = np.array(fluo)[:,idxOS]
 
 # All frames, only OS neurons
 neuralProj_L23, percVarExpl_L23 = functions_analyze.compute_neuralPCs(thisFluo,bool_plot=1,title='L2/3 - All frames - OS only')
-
-
-# Select the ROIs we are interested in
-idxOS = np.squeeze(np.array(np.where(np.array(charBoutons['OS']))))
-#thisFluo = np.array(fluo)
-thisFluo = np.array(fluo_boutons)[:,idxOS]
-
-# All frames, only OS neurons
-neuralProj_boutons, percVarExpl_boutons = functions_analyze.compute_neuralPCs(thisFluo,bool_plot=1,title='Thalamic boutons - All frames - OS only')
 
 
 

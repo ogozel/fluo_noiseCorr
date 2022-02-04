@@ -35,7 +35,6 @@ os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
 import globalParams
 import functions_preprocess
 
-dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
 
 #%% Parameters of the data to preprocess
@@ -43,11 +42,11 @@ dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 ### TO CHOOSE ###
 dataType = 'L23_thalamicBoutons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 
-filepath = dataDir + dataType + '_dataSpecs.hdf'
+filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
 dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
 
 ### TO CHOOSE ###
-idxDataset = 0
+idxDataset = 3
 bool_discardFluoPlaneSide = False # By default: False; if we need to discard ROIs on the border of the field of view
 
 
@@ -171,7 +170,7 @@ if dataType=='L23_thalamicBoutons':
     
     print("Saving all the data...")
     savefilepath = globalParams.processedDataDir + dataType +'_boutons_' + dataDate + '_' + \
-        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
+        dataMouse + '_' + dataDepth + '_neuropilF_' + boutonNeuropilSub + '_threshDist2d5um.hdf'
     
     fluo.to_hdf(savefilepath,key='fluo')
     charROI.to_hdf(savefilepath,key='charROI')

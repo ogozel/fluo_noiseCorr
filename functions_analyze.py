@@ -438,7 +438,7 @@ def plot_corr_fdist(fluo,distROI,startBin=2.5,binSize=10,title=None):
     plt.xlabel('Distance [um]')
     plt.ylabel('Correlation')
     plt.xlim(0,250)
-    #plt.ylim(0,0.20)
+    #plt.ylim(0,0.10)
     plt.grid(axis = 'y')
     plt.title(title)
     #plt.savefig('corr_fdist.eps', format='eps')

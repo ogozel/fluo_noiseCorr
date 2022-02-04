@@ -19,22 +19,27 @@ import globalParams
 import functions_analyze
 import functions_preprocess
 
-dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
 
 
 #%% Parameters of the preprocessed data to analyze
 
-filepath = dataDir + 'L4_cytosolic_dataSpecs.hdf'
-dataSpecs = pd.read_hdf(filepath,'L4_cytosolic_dataSpecs')
+### TO CHOOSE ###
+dataType = 'L23_thalamicBoutons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 
-dataType = 'L4_cytosolic'
-idxDataset = 0 # 0,1,4,8: nice corr=f(dist); 2,3,5,6,7,9: bad corr=f(dist)
+filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
+dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
+
+### TO CHOOSE ###
+idxDataset = 3 # L4_cytosolic: 0,1,4,8: nice corr=f(dist); 2,3,5,6,7,9: bad corr=f(dist)
+
 dataDate = dataSpecs.iloc[idxDataset]['Date']
 dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
 dataDepth = dataSpecs.iloc[idxDataset]['Depth']
 pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
+
+### To CHOOSE ###
 dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor
 
 
@@ -54,12 +59,16 @@ fluoPlaneHeight = np.array(fluoPlaneWidthHeight)[1].item()
 
 if 'pupilArea' in charTrials:
     bool_pupil = True
+else:
+    bool_pupil = False
 
 store = pd.HDFStore(filepath,mode='r')
 if 'motAvg' in store:
     bool_motion = True
     motAvg = pd.read_hdf(filepath,'motAvg')
     uMotMask = pd.read_hdf(filepath,'uMotMask')
+else:
+    bool_motion = False
 
 ### !!!
 #fluo = fluo[0:13000]
@@ -71,6 +80,8 @@ if 'motAvg' in store:
 
 functions_preprocess.plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
 
+percROI_OS = 100*(charROI[charROI['OS']==True].shape[0] / charROI.shape[0])
+print(str(np.around(percROI_OS))+'% V1 ROIs are orientation-selective (OS).')
 
 
 #%% Plot the pairwise correlation as a function of pairwise distance
@@ -147,8 +158,14 @@ neuralProj, percVarExpl = functions_analyze.compute_neuralPCs(thisFluo,bool_plot
 #%% Define the traces of interest
 
 traceNeural = neuralProj[:,0]
-tracePupil = np.array(charTrials['pupilArea']).astype(float)
-traceMotion = np.array(charTrials['motSVD1'])
+if 'pupilArea' in charTrials:
+    tracePupil = np.array(charTrials['pupilArea']).astype(float)
+else:
+    tracePupil = None
+if 'motSVD1' in charTrials:
+    traceMotion = np.array(charTrials['motSVD1'])
+else:
+    traceMotion = None
 
 # Flip trace if average is negative
 if np.mean(traceMotion) < 0:
