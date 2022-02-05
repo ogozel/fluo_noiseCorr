@@ -9,7 +9,7 @@ Analyze the data using home-made functions
 
 import pandas as pd
 import numpy as np
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import os
 
 
@@ -48,7 +48,7 @@ dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor
 filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
         dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
 
-fluo = pd.read_hdf(filepath,'fluo')
+fluoINIT = pd.read_hdf(filepath,'fluo')
 charROI = pd.read_hdf(filepath,'charROI')
 charTrials = pd.read_hdf(filepath,'charTrials')
 positionROI = pd.read_hdf(filepath,'positionROI')
@@ -56,6 +56,8 @@ distROI = pd.read_hdf(filepath,'distROI')
 fluoPlaneWidthHeight = pd.read_hdf(filepath,'fluoPlaneWidthHeight')
 fluoPlaneWidth = np.array(fluoPlaneWidthHeight)[0].item()
 fluoPlaneHeight = np.array(fluoPlaneWidthHeight)[1].item()
+
+fluo = fluoINIT
 
 if 'pupilArea' in charTrials:
     bool_pupil = True
@@ -70,10 +72,6 @@ if 'motAvg' in store:
 else:
     bool_motion = False
 
-### !!!
-#fluo = fluo[0:13000]
-#charTrials = charTrials[0:13000]
-### !!!
 
 
 #%% Plot ROIs with their selectivity
@@ -186,7 +184,43 @@ functions_analyze.plot_crosscorrelations(traceNeural,tracePupil,traceMotion,bool
 
 
 
+#%% Within-area full dimensionality
 
+fluo = np.array(fluoINIT)
+varROI = np.var(fluoINIT,axis=0)
+plt.figure()
+plt.hist(varROI)
+plt.title('Variability of ROIs')
+idxTooVar = np.where(varROI>1000)[0]
+fluo = np.delete(fluo,idxTooVar,axis=1)
+charROI = charROI.iloc[np.setdiff1d(np.arange(charROI.shape[0]),idxTooVar)].reset_index()
+
+# Select the ROIs and frame type we are interested i
+idxOS = np.where(np.array(charROI['OS']))[0]
+idxNonOS = np.where(np.array(charROI['OS']==False))[0]
+idxBlank = np.where(charTrials['FrameType']=='Blank')[0]
+idxStimulus = np.where(charTrials['FrameType']=='Stimulus')[0]
+
+
+# OS only, blank frames
+thisFluo = fluo[:,idxOS][idxBlank,:]
+partRatio= functions_analyze.compute_dimensionality(thisFluo,type='full')
+partRatio= functions_analyze.compute_dimensionality(thisFluo,type='shared')
+
+# OS only, stimulus frames
+thisFluo = fluo[:,idxOS][idxStimulus,:]
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='full')
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='shared')
+
+# Non-OS only, blank frames
+thisFluo = fluo[:,idxNonOS][idxBlank,:]
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='full')
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='shared')
+
+# Non-OS only, stimulus frames
+thisFluo = fluo[:,idxNonOS][idxStimulus,:]
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='full')
+partRatio = functions_analyze.compute_dimensionality(thisFluo,type='shared')
 
 
 

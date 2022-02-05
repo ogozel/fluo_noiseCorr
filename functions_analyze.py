@@ -13,6 +13,7 @@ from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
 import statsmodels.tsa.stattools as smt
 import random as rnd
+from sklearn.decomposition import FactorAnalysis
 
 
 
@@ -32,7 +33,7 @@ def compute_neuralPCs(fluo,bool_plot=0,title=None):
     #u = np.transpose(pca.components_)
 
     # Singular values squared = eigenvalues of c_full
-    #s = np.square(pca.singular_values_)
+    #eigenvals = np.square(pca.singular_values_)
 
     # Percentage of variance explained
     percVarExpl = pca.explained_variance_ratio_
@@ -526,8 +527,49 @@ def plot_ftrials_corr_fdist(fluo,distROI,nFramesPerTrial,binSize=10,nInstances=1
     plt.legend()
     plt.show()
     
+
+
+
+
+# Compute dimensionality of neuronal representation, assessed by Participation Ratio
+def compute_dimensionality(fluo,type='full'):
+    
+    # Mean-subtract the neural activity
+    fluo_meanSub = np.array(fluo - np.mean(fluo,axis=0))
     
     
+    if type=='full':
+        cov_type = np.matmul(np.transpose(fluo_meanSub), fluo_meanSub)
+        #cov_type = np.cov(np.transpose(fluo_meanSub)) # full covariance matrix
+    elif type=='shared':
+        myFAmodel = FactorAnalysis(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(tol=1e-6,max_iter = 10000)
+        
+        # NB: This is the model:
+        # C_full = W^T W + Psi = components_.T * components_ + diag(noise_variance)
+        
+        myFAmodel.fit(fluo_meanSub)
+        instFR_FAcomp = myFAmodel.components_ # (n_components, n_features)
+        
+        cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) # shared covariance matrix
+        
+        # NB: these are two ways how to recover the full covariance matrix
+        #cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) + np.diag(myFAmodel.noise_variance_) # full covariance matrix
+        #cov_type = myFAmodel.get_covariance() # full covariance matrix
     
     
+    # Perform Singluar value decomposition
+    u,s,__ = np.linalg.svd(cov_type)
     
+    # Compute Participation Ratio
+    this_PR = np.power(np.sum(s),2)/np.sum(np.power(s,2))
+    
+    if type=='full':
+        print('Full participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
+    elif type=='shared':
+        print('Shared participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
+    
+    
+    return this_PR
+
+
+
