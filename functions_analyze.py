@@ -9,11 +9,14 @@ Functions to do the analyses
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import normalize
 import statsmodels.tsa.stattools as smt
 import random as rnd
 from sklearn.decomposition import FactorAnalysis
+
+import globalParams
 
 
 
@@ -439,7 +442,7 @@ def plot_corr_fdist(fluo,distROI,startBin=2.5,binSize=10,title=None):
     plt.xlabel('Distance [um]')
     plt.ylabel('Correlation')
     plt.xlim(0,250)
-    #plt.ylim(0,0.10)
+    plt.ylim(0,0.42)
     plt.grid(axis = 'y')
     plt.title(title)
     #plt.savefig('corr_fdist.eps', format='eps')
@@ -532,7 +535,7 @@ def plot_ftrials_corr_fdist(fluo,distROI,nFramesPerTrial,binSize=10,nInstances=1
 
 
 # Compute dimensionality of neuronal representation, assessed by Participation Ratio
-def compute_dimensionality(fluo,type='full'):
+def compute_dimensionality(fluo,type='full',boolPrint=False):
     
     # Mean-subtract the neural activity
     fluo_meanSub = np.array(fluo - np.mean(fluo,axis=0))
@@ -541,6 +544,7 @@ def compute_dimensionality(fluo,type='full'):
     if type=='full':
         cov_type = np.matmul(np.transpose(fluo_meanSub), fluo_meanSub)
         #cov_type = np.cov(np.transpose(fluo_meanSub)) # full covariance matrix
+        
     elif type=='shared':
         myFAmodel = FactorAnalysis(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(tol=1e-6,max_iter = 10000)
         
@@ -552,10 +556,19 @@ def compute_dimensionality(fluo,type='full'):
         
         cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) # shared covariance matrix
         
-        # NB: these are two ways how to recover the full covariance matrix
-        #cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) + np.diag(myFAmodel.noise_variance_) # full covariance matrix
-        #cov_type = myFAmodel.get_covariance() # full covariance matrix
-    
+    elif type=='private':
+        myFAmodel = FactorAnalysis(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(tol=1e-6,max_iter = 10000)
+        
+        # NB: This is the model:
+        # C_full = W^T W + Psi = components_.T * components_ + diag(noise_variance)
+        
+        myFAmodel.fit(fluo_meanSub)
+        
+        cov_type = np.diag(myFAmodel.noise_variance_) # private covariance matrix
+        
+    # NB: these are two ways how to recover the full covariance matrix after Factor Analysis
+    #cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) + np.diag(myFAmodel.noise_variance_) # full covariance matrix
+    #cov_type = myFAmodel.get_covariance() # full covariance matrix
     
     # Perform Singluar value decomposition
     u,s,__ = np.linalg.svd(cov_type)
@@ -563,13 +576,204 @@ def compute_dimensionality(fluo,type='full'):
     # Compute Participation Ratio
     this_PR = np.power(np.sum(s),2)/np.sum(np.power(s,2))
     
-    if type=='full':
-        print('Full participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
-    elif type=='shared':
-        print('Shared participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
+    if boolPrint:
+        if type=='full':
+            print('Full participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
+        elif type=='shared':
+            print('Shared participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
+        elif type=='private':
+            print('Private participation ratio = '+ str(round(this_PR,1)) + ' (out of '+ str(fluo.shape[1]) +' ROIs)')
     
     
-    return this_PR
+    return this_PR, cov_type, s
+
+
+
+# Bootstrap of dimensionality computation
+# nROIs: list of number of ROIs we want to sample, eg. nROIs=[5,10,20]
+# nTimes: number of times we want to sample
+def compute_dimensionalityBootstrap(fluo,nROIs=[10],nTimes=10,type='full',boolPlot=True):
+
+    # Mean-subtract the neural activity
+    fluo_meanSub = np.array(fluo - np.mean(fluo,axis=0))
+    
+    # Create empy list to fill with the PR values
+    allPR = [[0] * nTimes for i in range(len(nROIs))]
+    
+    for nr in range(len(nROIs)):
+        thisNR = nROIs[nr]
+        
+        for t in range(nTimes):
+            theseROIs = rnd.sample(range(0,fluo.shape[1]),thisNR)
+            
+            thisFluoMeanSub = fluo_meanSub[:,theseROIs]
+            
+            if type=='full':
+                cov_type = np.matmul(np.transpose(thisFluoMeanSub), thisFluoMeanSub)
+            elif type=='shared':
+                myFAmodel = FactorAnalysis(noise_variance_init=np.var(thisFluoMeanSub,axis=0))
+                
+                # NB: This is the model:
+                # C_full = W^T W + Psi = components_.T * components_ + diag(noise_variance)
+                
+                myFAmodel.fit(thisFluoMeanSub)
+                instFR_FAcomp = myFAmodel.components_ # (n_components, n_features)
+                
+                cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) # shared covariance matrix
+                
+            # Perform Singluar value decomposition
+            u,s,__ = np.linalg.svd(cov_type)
+            
+            # Compute Participation Ratio...
+            thisPR = np.power(np.sum(s),2)/np.sum(np.power(s,2))
+            # ... and write it down
+            allPR[nr][t] = thisPR
+    
+    if boolPlot==True:
+        meanPR = np.mean(np.array(allPR),axis=1)
+        semPR = np.std(np.array(allPR),axis=1)/np.sqrt(nTimes)
+        plt.figure()
+        plt.errorbar(nROIs,meanPR,yerr=semPR)
+        plt.xlabel('Number of ROIs')
+        plt.xticks(nROIs)
+        #plt.ylim((0,25))
+        if type=='full':
+            plt.ylabel('Full PR')
+        elif type=='shared':
+            plt.ylabel('Shared PR')
+        plt.title('Sampling ROIs '+str(nTimes)+' times')
+        
+                
+    return allPR
+                
+                
+
+# Plot the average fluorescence for each trial orientation
+def plot_avgFluoPerOri(dataType,charTrials,fluo,frameRate,title=None):
+    
+    if dataType=='L4_cytosolic':
+        tmpTime = (1/frameRate)*(np.arange(25)-5) # np.arange(25)+1
+    elif dataType=='L23_thalamicBoutons':
+        tmpTime = (1/frameRate)*(np.arange(30)-5) # np.arange(30)+1
+        
+    charTrials = charTrials[['Orientation','TrialFrame']]
+    data = pd.concat([charTrials, fluo],axis=1)
+    
+    avgPerOri = data.groupby(['TrialFrame','Orientation']).mean()
+    avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
+    avgPerOri = avgPerOri.reset_index()
+    
+    fig, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+    for o in range(4):
+        tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]]
+        tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
+        tmpMean = np.mean(tmp,axis=1)
+        tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
+        axs[int(o/2), np.mod(o,2)].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
+        axs[int(o/2), np.mod(o,2)].plot(tmpTime,tmpMean,color='k')
+        axs[int(o/2), np.mod(o,2)].set_title('Orientation: '+str(globalParams.ori[o])+'°')
+    fig.suptitle(title)
+
+
+# Plot the average behavioral trace over all trials
+def plot_avgBehavioralTrace(dataType,charTrials,frameRate,boolMotion,boolPupil):
+    
+    if dataType=='L4_cytosolic':
+        tmpTime = (1/frameRate)*(np.arange(25)-5) # np.arange(25)+1
+    elif dataType=='L23_thalamicBoutons':
+        tmpTime = (1/frameRate)*(np.arange(30)-5) # np.arange(30)+1
+      
+    if boolMotion:
+        data = charTrials[['TrialFrame','motSVD1']]
+        
+        tmpMean = np.squeeze(np.array(data.groupby(['TrialFrame']).mean()))
+        tmpSEM = np.squeeze(np.array(data.groupby(['TrialFrame']).std()/np.sqrt(data.shape[0]/len(tmpTime))))
+        
+        plt.figure()
+        plt.fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
+        plt.plot(tmpTime,tmpMean,color='k')
+        plt.xlabel('Aligned time [s]')
+        plt.title('Average motSVD1 over all trials')
+        
+    if boolPupil:
+        data = charTrials[['TrialFrame','pupilArea']]
+        
+        tmpMean = np.squeeze(np.array(data.groupby(['TrialFrame']).mean()))
+        tmpSEM = np.squeeze(np.array(data.groupby(['TrialFrame']).std()/np.sqrt(data.shape[0]/len(tmpTime))))
+        
+        plt.figure()
+        plt.fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
+        plt.plot(tmpTime,tmpMean,color='k')
+        plt.xlabel('Aligned time [s]')
+        plt.title('Average pupilArea over all trials')  
+
+
+# Compute Fano factor for each ROIs
+def compute_fanoFactor(dataType,charTrials,fluo,title=None):
+    
+    fluo = np.array(fluo)
+    nROIs = fluo.shape[1]
+    nFrames = fluo.shape[0]
+    
+    if dataType=='L4_cytosolic':
+        tmpTime = np.arange(25)+1
+    elif dataType=='L23_thalamicBoutons':
+        tmpTime = np.arange(30)+1
+    
+    # Compute Fano Factor over all trials for each ROI
+    fanoFactor = []
+    for n in range(0,nROIs):
+        tmpFluo = fluo[:,n]
+        tmpFluo = np.reshape(tmpFluo,(int(nFrames/len(tmpTime)),len(tmpTime)))
+        meanFluo = np.mean(tmpFluo,axis=0)
+        varFluo = np.var(tmpFluo,axis=0)
+        fanoFactor.append(varFluo/meanFluo)
+    
+    meanFF = np.nanmean(np.array(fanoFactor),axis=0)
+    semFF = np.nanstd(np.array(fanoFactor),axis=0)/np.sqrt(nROIs)
+    
+    plt.figure()
+    plt.plot(tmpTime,meanFF,'k-')
+    plt.fill_between(tmpTime, meanFF-semFF, meanFF+semFF)
+    plt.xlabel('Aligned time frames')
+    plt.ylabel('Average Fano Factor')
+    #plt.ylim((0.8,1.9))
+    plt.title(title)
+    
+    # Compute Fano Factor over all trials of each orientation separately for each ROI
+    for o in range(4):
+        fanoFactorPerThisOri = []
+        tmpIdx = np.where(charTrials['Orientation']==globalParams.ori[o])[0]
+        tmpFluo = fluo[tmpIdx,:]
+        nFrames = len(tmpIdx)
+        for n in range(0,nROIs):
+            tmpFluo1ROI = tmpFluo[:,n]
+            tmpFluo1ROI = np.reshape(tmpFluo1ROI,(int(nFrames/len(tmpTime)),len(tmpTime)))
+            meanFluo = np.mean(tmpFluo1ROI,axis=0)
+            varFluo = np.var(tmpFluo1ROI,axis=0)
+            fanoFactorPerThisOri.append(varFluo/meanFluo)
+        fanoFactorPerThisOri = np.array(fanoFactorPerThisOri)
+        if o==0:
+            fanoFactorPerOri = fanoFactorPerThisOri
+            fanoFactorPerOri = fanoFactorPerOri[:,:,np.newaxis]
+        else:
+            fanoFactorPerOri = np.concatenate((fanoFactorPerOri,fanoFactorPerThisOri[:,:,np.newaxis]),axis=2)
+    
+    fig, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+    for o in range(4):
+        tmp = fanoFactorPerOri[:,:,o]
+        tmpMean = np.mean(tmp,axis=0)
+        tmpSEM = np.std(tmp,axis=0)/np.sqrt(tmp.shape[0])
+        axs[int(o/2), np.mod(o,2)].plot(tmpTime,tmpMean)
+        axs[int(o/2), np.mod(o,2)].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
+        axs[int(o/2), np.mod(o,2)].set_title('Orientation: '+str(globalParams.ori[o])+'°')
+    fig.suptitle(title)
+    
+    
+    return np.array(fanoFactor), fanoFactorPerOri
+
+
+
 
 
 

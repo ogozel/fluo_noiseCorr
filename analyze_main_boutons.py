@@ -259,7 +259,7 @@ idxOS = np.squeeze(np.array(np.where(np.array(charROI['OS']))))
 thisFluo = np.array(fluo)[:,idxOS]
 
 # All frames, only OS neurons
-neuralProj_L23, percVarExpl_L23 = functions_analyze.compute_neuralPCs(thisFluo,bool_plot=1,title='L2/3 - All frames - OS only')
+neuralProj_boutons, percVarExpl_boutons = functions_analyze.compute_neuralPCs(thisFluo,bool_plot=1,title='Boutons - All frames - OS only')
 
 
 
