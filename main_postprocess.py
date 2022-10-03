@@ -40,7 +40,7 @@ import functions_postprocess
 #%% Parameters of the data to preprocess
 
 ### TO CHOOSE ###
-dataType = 'L23_thalamicBoutons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
+dataType = 'L4_cytosolic' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 # 'L4_LGN_targeted_axons'
 
 filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
@@ -48,7 +48,7 @@ dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
 
 ### TO CHOOSE ###
 idxDataset = 0 # NB: L2/3 dataset4 has weird avg fluo per ori
-boolBoutons = True
+boolBoutons = False
 # bool_discardFluoPlaneSide = False # By default: False; if we need to discard ROIs on the border of the field of view
 
 
@@ -82,7 +82,6 @@ charROI,charTrials,fluo,data,positionROI,distROI,idxKept = functions_postprocess
 #%% Take care of the behavioral data if present
 
 # Pupil data
-#charTrials = functions_postprocess.preprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path,charTrials)
 charPupil = functions_postprocess.postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path)
 if charPupil is not None:
     # Plot the average pupil area per orientation
@@ -90,30 +89,9 @@ if charPupil is not None:
     functions_postprocess.plot_avgPupilPerOri(data,dataFramesPerTrial)
     
 # Motion data
-#charTrials,motAvg,uMotMask = functions_postprocess.preprocess_motion(dataType,dataDate,dataMouse,dataDepth,path,charTrials)
 motSVD = functions_postprocess.postprocess_motion(dataType,dataDate,dataMouse,dataDepth,path)
-    
 
-# #%% If needed, artificially discard ROIs which are on the border of the field of view
 
-# if bool_discardFluoPlaneSide:
-#     print("Discarding ROIs which are on the border of the field of view!")
-#     thresh = int(0.98*fluoPlaneWidth)
-#     tmpIdx = np.array(charROI['xCM']<thresh) # boolean vector
-#     #zidx = np.array(np.where(tmpIdx==True))[0] # array with indices
-#     #fluo = fluo[zidx]
-#     fluo = np.array(fluo)[:,tmpIdx]
-#     fluo = pd.DataFrame(fluo)
-#     #charROI = charROI[tmpIdx]
-#     charROI = charROI.iloc[tmpIdx].reset_index()
-#     charROI = charROI.drop(columns=['index'])
-#     #positionROI = positionROI[tmpIdx]
-#     positionROI = positionROI.iloc[tmpIdx].reset_index()
-#     positionROI = positionROI.drop(columns=['index'])
-#     distROI = distROI[tmpIdx,:][:,tmpIdx]
-#     functions_preprocess.plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
-#     data = pd.concat([charTrials, fluo],axis=1)
-#     functions_preprocess.plot_avgFluoPerOri(data,dataFramesPerTrial)
 
 #%% Save data
 
@@ -138,22 +116,13 @@ if charPupil is not None:
 
 if motSVD is not None:
     motSVD.to_hdf(savefilepath,key='motSVD')
-
-# if motAvg is not None:
-#     motAvg = pd.DataFrame(motAvg)
-#     motAvg.to_hdf(savefilepath,key='motAvg')
-    
-# if uMotMask is not None:
-#     nSVD = uMotMask.shape[2]
-#     xtmp = uMotMask.shape[0]
-#     ytmp = uMotMask.shape[1]
-#     uMotMask = pd.DataFrame(uMotMask.reshape(xtmp*ytmp,nSVD))
-#     uMotMask.to_hdf(savefilepath,key='uMotMask')
     
 
 # NB: To read the dataframes within the saved file
 # example:  data = pd.read_hdf(filepath,'data')
 
+
+#%% use a regression model to explain neuronal variability
 
 # Check linear sridge regression score
 import sklearn.linear_model as lm
@@ -188,7 +157,6 @@ if boolBoutons:
     
     print("Taking care of the behavioral data if present...")
     # Pupil data
-    #charTrials = functions_postprocess.preprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path,charTrials)
     charPupil = functions_postprocess.postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path)
     if charPupil is not None:
         # Plot the average pupil area per orientation
@@ -196,7 +164,6 @@ if boolBoutons:
         functions_postprocess.plot_avgPupilPerOri(data,dataFramesPerTrial)
     
     # Motion data
-    #charTrials,motAvg,uMotMask = functions_postprocess.preprocess_motion(dataType,dataDate,dataMouse,dataDepth,path,charTrials)
     motSVD = functions_postprocess.postprocess_motion(dataType,dataDate,dataMouse,dataDepth,path)
         
     print("Saving all the data...")
@@ -218,21 +185,7 @@ if boolBoutons:
 
     if motSVD is not None:
         motSVD.to_hdf(savefilepath,key='motSVD')
-    
-    # if motAvg is not None:
-    #     motAvg = pd.DataFrame(motAvg)
-    #     motAvg.to_hdf(savefilepath,key='motAvg')
-        
-    # if uMotMask is not None:
-    #     nSVD = uMotMask.shape[2]
-    #     xtmp = uMotMask.shape[0]
-    #     ytmp = uMotMask.shape[1]
-    #     uMotMask = pd.DataFrame(uMotMask.reshape(xtmp*ytmp,nSVD))
-    #     uMotMask.to_hdf(savefilepath,key='uMotMask')
 
 
-
-# z = motSVD[:,0]
-# z2 = np.reshape(z,(2430,5),order='F')
 
 
