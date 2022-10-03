@@ -4,7 +4,7 @@ Created on Wed Aug 11 14:46:09 2021
 
 @author: Olivia Gozel
 
-Analyze the data using home-made functions
+Analyze the V1 data and the behavioral data (if present) using home-made functions
 """
 
 import pandas as pd
@@ -31,7 +31,7 @@ filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
 dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
 
 ### TO CHOOSE ###
-idxDataset = 0 # L4_cytosolic: 0,1,4,8: nice corr=f(dist); 2,3,5,6,7,9: bad corr=f(dist)
+idxDataset = 1 # L4_cytosolic: 0,1,4,8: nice corr=f(dist); 2,3,5,6,7,9: bad corr=f(dist)
 
 dataDate = dataSpecs.iloc[idxDataset]['Date']
 dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
@@ -40,14 +40,21 @@ pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
 dataFR = dataSpecs.iloc[idxDataset]['FrameRate']
 
+if dataType=='L23_thalamicBoutons':
+    dataFramesPerTrial = dataSpecs.iloc[idxDataset]['nFramePerTrial']
+elif dataType=='L4_cytosolic':
+    dataFramesPerTrial = globalParams.nFramesPerTrial
+
 ### To CHOOSE ###
 dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor
 
 
 #%% Load data
 
+# filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
+#         dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
 filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
-        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist2d5um.hdf'
+        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist10um.hdf'
 
 fluoINIT = pd.read_hdf(filepath,'fluo')
 charROI = pd.read_hdf(filepath,'charROI')
@@ -74,6 +81,19 @@ else:
     bool_motion = False
 
 
+# Save in matlab format:
+# from scipy import io
+# io.savemat('filename.mat', {"L4": np.array(fluo) })
+
+# from scipy import io
+# fluo_blank = fluo.loc[charTrials['FrameType']=='Blank'].reset_index(drop=True)
+# fluo_stim = fluo.loc[charTrials['FrameType']=='Stimulus'].reset_index(drop=True)
+# fluo_stim45 = fluo.loc[(charTrials['FrameType']=='Stimulus') & (charTrials['Orientation']==45)].reset_index(drop=True)
+# fluo_stim45 = fluo_stim45.loc[0:4999]
+# io.savemat('dataset6_L23_perType.mat', {"L23_blank": np.array(fluo_blank), "L23_stim": np.array(fluo_stim), "L23_stim45": np.array(fluo_stim45) })
+
+# oriFrames = charTrials['Orientation'].loc[(charTrials['FrameType']=='Stimulus')].reset_index(drop=True)
+# io.savemat('dataset0_stimFramesOri.mat', {"oriFrames": np.array(oriFrames)})
 
 #%% Plot ROIs with their selectivity
 
@@ -92,29 +112,85 @@ thisFluo = fluo[idxToKeep]
 thisCharROI = charROI.iloc[idxToKeep].reset_index()
 
 # All ROIs
-functions_analyze.plot_avgFluoPerOri(dataType,charTrials,thisFluo,dataFR,title='All ROIs')
+functions_analyze.plot_avgFluoPerOri(dataFramesPerTrial,charTrials,thisFluo,dataFR,title='All ROIs')
 
 # Only ROIs selective for a given orientation
 for o in range(4):
     tmpIdx = np.where((thisCharROI['OS']==True)&(thisCharROI['PrefOri']==globalParams.ori[o]))[0]
     tmpFluo = thisFluo[idxToKeep[tmpIdx]]
-    functions_analyze.plot_avgFluoPerOri(dataType,charTrials,tmpFluo,dataFR,title='ROIs selective for '+str(globalParams.ori[o])+'°')
+    functions_analyze.plot_avgFluoPerOri(dataFramesPerTrial,charTrials,tmpFluo,dataFR,title='ROIs selective for '+str(globalParams.ori[o])+'°')
     
 # Non-OS ROIs only
 idxNonOS = np.where(thisCharROI['OS']==False)[0]
 tmpFluo = thisFluo[idxToKeep[idxNonOS]]
-functions_analyze.plot_avgFluoPerOri(dataType,charTrials,tmpFluo,dataFR,title='Non-OS ROIs')
+functions_analyze.plot_avgFluoPerOri(dataFramesPerTrial,charTrials,tmpFluo,dataFR,title='Non-OS ROIs')
 
 # OS ROIs only
 idxOS = np.where(thisCharROI['OS']==True)[0]
 tmpFluo = thisFluo[idxToKeep[idxOS]]
-functions_analyze.plot_avgFluoPerOri(dataType,charTrials,tmpFluo,dataFR,title='OS ROIs')
+functions_analyze.plot_avgFluoPerOri(dataFramesPerTrial,charTrials,tmpFluo,dataFR,title='OS ROIs')
 
 
 #%% Compute grand average behavioral trace
 
 functions_analyze.plot_avgBehavioralTrace(dataType,charTrials,dataFR,bool_motion,bool_pupil)
 
+
+#%% Compute Pearson correlation between 1st motion PC and 1st neural PC
+
+idxOS = np.where(np.array(charROI['OS']))[0]
+idxNonOS = np.where(np.array(charROI['OS']==False))[0]
+idxBlank = np.where(charTrials['FrameType']=='Blank')[0]
+idxStimulus = np.where((charTrials['FrameType']=='Stimulus') & (charTrials['Orientation']==45))[0] ### !!!
+
+if len(idxBlank) < len(idxStimulus):
+    idxStimulus = idxStimulus[0:len(idxBlank)]
+
+motSVD1_blank = charTrials['motSVD1'].iloc[idxBlank]
+motSVD1_stim = charTrials['motSVD1'].iloc[idxStimulus]
+# motSVD1_blank = charTrials['pupilArea'].iloc[idxBlank]
+# motSVD1_stim = charTrials['pupilArea'].iloc[idxStimulus]
+
+fluoOS_blank = fluo[idxOS].iloc[idxBlank]
+neurProj_OS_blank,_ = functions_analyze.compute_neuralPCs(fluoOS_blank)
+fluoOS_stim = fluo[idxOS].iloc[idxStimulus]
+neurProj_OS_stim,_ = functions_analyze.compute_neuralPCs(fluoOS_stim)
+fluoNonOS_blank = fluo[idxNonOS].iloc[idxBlank]
+neurProj_nonOS_blank,_ = functions_analyze.compute_neuralPCs(fluoNonOS_blank)
+fluoNonOS_stim = fluo[idxNonOS].iloc[idxStimulus]
+neurProj_nonOS_stim,_ = functions_analyze.compute_neuralPCs(fluoNonOS_stim)
+
+print('Pearson corr neuralPC1-motionPC1 spontaneous OS: '+str(np.corrcoef(motSVD1_blank,neurProj_OS_blank[:,0])[0,1]))
+print('Pearson corr neuralPC1-motionPC1 evoked OS: '+str(np.corrcoef(motSVD1_stim,neurProj_OS_stim[:,0])[0,1]))
+print('Pearson corr neuralPC1-motionPC1 spontaneous nonOS: '+str(np.corrcoef(motSVD1_blank,neurProj_nonOS_blank[:,0])[0,1]))
+print('Pearson corr neuralPC1-motionPC1 evoked nonOS: '+str(np.corrcoef(motSVD1_stim,neurProj_nonOS_stim[:,0])[0,1]))
+
+
+#%% Compute the distribution of Pearson correlation between 1st motion PC and each ROI
+
+idxOS = np.where(np.array(charROI['OS']))[0]
+idxNonOS = np.where(np.array(charROI['OS']==False))[0]
+idxBlank = np.where(charTrials['FrameType']=='Blank')[0]
+idxStimulus = np.where((charTrials['FrameType']=='Stimulus') & (charTrials['Orientation']==45))[0] ### !!!
+
+if len(idxBlank) < len(idxStimulus):
+    idxStimulus = idxStimulus[0:len(idxBlank)]
+
+motSVD1_blank = charTrials['motSVD1'].iloc[idxBlank]
+motSVD1_stim = charTrials['motSVD1'].iloc[idxStimulus]
+# motSVD1_blank = charTrials['pupilArea'].iloc[idxBlank]
+# motSVD1_stim = charTrials['pupilArea'].iloc[idxStimulus]
+
+
+pearsonCorr = pd.DataFrame()
+pearsonCorr['blank'] = fluo.iloc[idxBlank].corrwith(motSVD1_blank)
+pearsonCorr['evoked'] = fluo.iloc[idxStimulus].corrwith(motSVD1_stim)
+
+# Plotting
+thoseBins = np.linspace(-0.5,0.5,11) # np.linspace(-1,1,21)
+fig, axes = plt.subplots(nrows=2, ncols=1)
+pearsonCorr.iloc[idxOS].plot.hist(alpha=0.5,title='Pearson corr - OS',ax=axes[0],bins=thoseBins)
+pearsonCorr.iloc[idxNonOS].plot.hist(alpha=0.5,title='Pearson corr - nonOS',ax=axes[1],bins=thoseBins)
 
 
 #%% Compute Fano Factor and plot its grand average
@@ -152,17 +228,18 @@ idxOS = np.squeeze(np.array(np.where(np.array(charROI['OS']))))
 thisDistROI = np.array(distROI)[idxOS,:][:,idxOS]
 
 # Evoked frames (OS neurons only)
-idxStim = np.squeeze(np.array(np.where(charTrials['FrameType']=='Stimulus')))
+#idxStim = np.squeeze(np.array(np.where(charTrials['FrameType']=='Stimulus')))
+idxStim = np.where((charTrials['FrameType']=='Stimulus')&(charTrials['Orientation']==270))[0]
 thisFluo = np.array(fluo)[idxStim,:][:,idxOS]
 
-binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,startBin=7.5,binSize=10,title='Evoked - OS only')
+binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,startBin=5,binSize=5,title='Evoked - OS only')
 
 
 # Spontaneous frames (OS neurons only)
 idxBlank = np.squeeze(np.array(np.where(charTrials['FrameType']=='Blank')))
 thisFluo = np.array(fluo)[idxBlank,:][:,idxOS]
 
-binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,startBin=2.5,binSize=10,title='Spontaneous - OS only')
+binCenters, sortedPairCorr = functions_analyze.plot_corr_fdist(thisFluo,thisDistROI,startBin=5,binSize=5,title='Spontaneous - OS only')
 
 
 

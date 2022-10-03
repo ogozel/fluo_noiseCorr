@@ -442,9 +442,103 @@ def plot_corr_fdist(fluo,distROI,startBin=2.5,binSize=10,title=None):
     plt.xlabel('Distance [um]')
     plt.ylabel('Correlation')
     plt.xlim(0,250)
-    plt.ylim(0,0.42)
+    plt.ylim(0,0.5)
     plt.grid(axis = 'y')
     plt.title(title)
+    #plt.savefig('corr_fdist.eps', format='eps')
+    
+    return binCenters, sortedPairCorr
+
+
+# Plot noise pairwise correlations as a function of pairwise distance
+# binSize in [um]
+def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,boolOS,boolIdenticalTuning,boolStimulus,startBin=5,binSize=5):
+    
+    if boolVisuallyEvoked:
+        if boolOS:
+            idxSelROI = np.where(charROI['OS']==True)[0]
+        else:
+            idxSelROI = np.where((charROI['VisuallyEvoked']==True)&(charROI['OS']==False))[0]
+    else:
+        idxSelROI = np.where(charROI['VisuallyEvoked']==False)[0]
+        
+    if boolStimulus:
+        idxSelFrames = np.where(charTrials['FrameType']=='Stimulus')[0]
+    else:
+        idxSelFrames = np.where(charTrials['FrameType']=='Blank')[0]
+        
+    # Extract the data
+    thisDistROI = np.array(distROI)[idxSelROI,:][:,idxSelROI]
+    thisFluo = np.array(fluo)[idxSelFrames,:][:,idxSelROI]
+    thisCharTrials = charTrials.loc[idxSelFrames]
+    thisCharROI = charROI.loc[idxSelROI]
+    
+    # Pairwise distances
+    if not boolIdenticalTuning:
+        pairDist = np.triu(thisDistROI,k=1).flatten()
+    
+    # For the histogram
+    numBin = int(500/binSize)
+    edges = np.linspace(startBin,500+startBin,numBin+1)
+    binCenters = np.linspace(startBin + binSize/2, startBin + numBin*binSize-binSize/2,numBin)
+    
+    # Initialize list to write the pairwise correlations
+    sortedPairCorr = []
+    
+    # Noise correlations, so we need to take trials of each orientation separately
+    for o in range(globalParams.nOri):
+        
+        # Select trials of a given orientation
+        theseFrames = np.where(thisCharTrials['Orientation']==globalParams.ori[o])[0]
+        thisFluo_perOri = thisFluo[theseFrames]
+        
+        if boolIdenticalTuning:
+            theseROI = np.where(thisCharROI['PrefOri']==globalParams.ori[o])[0]
+            thisFluo_perOri = thisFluo_perOri[:,theseROI]
+            pairDist = np.triu(thisDistROI[theseROI,:][:,theseROI],k=1).flatten()
+        
+        # Mean-subtract the neural activity
+        fluo_meanSub = thisFluo_perOri - np.mean(thisFluo_perOri,axis=0)
+        
+        # Full neural correlation matrix
+        corr_full = np.corrcoef(fluo_meanSub, rowvar=False)
+        
+        # Set lower triangular and diagonal elements to zero
+        pairCorr = np.triu(corr_full,k=1).flatten()
+        
+        # Select only the non-zero pairwise correlations
+        tmpIdx = np.where(pairCorr!=0)[0]
+        thisPairDist = pairDist[tmpIdx]
+        thisPairCorr = pairCorr[tmpIdx]
+        
+        # Compute histogram
+        for i in range(0,numBin):
+            startEdge = edges[i]
+            endEdge = edges[i+1]
+            thisIdx = np.where((thisPairDist>startEdge) & (thisPairDist<=endEdge))
+            if o==0:
+                sortedPairCorr.append(thisPairCorr[thisIdx])
+            else:
+                sortedPairCorr[i] = np.concatenate((sortedPairCorr[i],thisPairCorr[thisIdx]))
+     
+    # Mean and SEM of pairwise correlations for all orientations combined
+    meanBinPairCorr = np.empty(numBin)
+    meanBinPairCorr[:] = np.NaN
+    semBinPairCorr = np.empty(numBin)
+    semBinPairCorr[:] = np.NaN
+    for i in range(0,numBin):
+        meanBinPairCorr[i] = np.nanmean(sortedPairCorr[i])
+        semBinPairCorr[i] = np.nanstd(sortedPairCorr[i])/np.sqrt(len(sortedPairCorr[i]))
+
+    # Plot errorbars
+    plt.figure()
+    plt.errorbar(binCenters, meanBinPairCorr, yerr=semBinPairCorr)
+    plt.xlabel('Distance [um]')
+    plt.ylabel('Correlation')
+    #plt.xlim(0,250)
+    plt.ylim(0,0.5)
+    plt.grid(axis = 'y')
+    plt.title('VisuallyEvoked='+str(boolVisuallyEvoked)+', OS='+str(boolOS)+', IdenticalTuning='+str(boolIdenticalTuning)+', StimulusFrames='+str(boolStimulus))
     #plt.savefig('corr_fdist.eps', format='eps')
     
     return binCenters, sortedPairCorr
@@ -531,6 +625,15 @@ def plot_ftrials_corr_fdist(fluo,distROI,nFramesPerTrial,binSize=10,nInstances=1
     plt.show()
     
 
+# Compute dimensionality for dataframe
+def compute_dimensionalityDF(fluoDF):
+    
+    covDF = fluoDF.cov()
+    u,s,__ = np.linalg.svd(covDF)
+    this_PR = np.power(np.sum(s),2)/np.sum(np.power(s,2))
+    this_N = fluoDF.shape[1]
+    
+    return this_PR,this_N
 
 
 
@@ -538,12 +641,12 @@ def plot_ftrials_corr_fdist(fluo,distROI,nFramesPerTrial,binSize=10,nInstances=1
 def compute_dimensionality(fluo,type='full',boolPrint=False):
     
     # Mean-subtract the neural activity
-    fluo_meanSub = np.array(fluo - np.mean(fluo,axis=0))
+    fluo_meanSub = np.array(fluo - np.nanmean(fluo,axis=0))
     
     
     if type=='full':
-        cov_type = np.matmul(np.transpose(fluo_meanSub), fluo_meanSub)
-        #cov_type = np.cov(np.transpose(fluo_meanSub)) # full covariance matrix
+        #cov_type = np.matmul(np.transpose(fluo_meanSub), fluo_meanSub)
+        cov_type = np.nancov(np.transpose(fluo_meanSub)) # full covariance matrix
         
     elif type=='shared':
         myFAmodel = FactorAnalysis(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(noise_variance_init=np.var(fluo_meanSub,axis=0)) #(tol=1e-6,max_iter = 10000)
@@ -645,16 +748,115 @@ def compute_dimensionalityBootstrap(fluo,nROIs=[10],nTimes=10,type='full',boolPl
         
                 
     return allPR
+
+
+### new
+# Bootstrap of dimensionality computation
+# nROIs: list of number of ROIs we want to sample, eg. nROIs=[5,10,20]
+# nTimes: number of times we want to sample
+def compute_dimensionalityBootstrap_spontVSevoked(fluo,idxBlank,idxStimulus,nROIs=[10],nTimes=10,type='full',boolPlot=True):
+    
+    plt.figure()
+    for thoseF in range(2):
+        
+        if thoseF==0:
+            thisFluo = fluo[idxBlank,:]
+        elif thoseF==1:
+            thisFluo = fluo[idxStimulus,:]
+            
+        # Mean-subtract the neural activity
+        fluo_meanSub = np.array(thisFluo - np.mean(thisFluo,axis=0))
+        
+        # Create empy list to fill with the PR values
+        allPR = [[0] * nTimes for i in range(len(nROIs))]
+        
+        for nr in range(len(nROIs)):
+            thisNR = nROIs[nr]
+            
+            for t in range(nTimes):
+                theseROIs = rnd.sample(range(0,thisFluo.shape[1]),thisNR)
                 
+                thisFluoMeanSub = fluo_meanSub[:,theseROIs]
+                
+                if type=='full':
+                    cov_type = np.matmul(np.transpose(thisFluoMeanSub), thisFluoMeanSub)
+                    #cov_type = np.corrcoef(np.transpose(thisFluoMeanSub))
+                elif type=='shared':
+                    myFAmodel = FactorAnalysis(noise_variance_init=np.var(thisFluoMeanSub,axis=0))
+                    
+                    # NB: This is the model:
+                    # C_full = W^T W + Psi = components_.T * components_ + diag(noise_variance)
+                    
+                    myFAmodel.fit(thisFluoMeanSub)
+                    instFR_FAcomp = myFAmodel.components_ # (n_components, n_features)
+                    
+                    cov_type = np.matmul(instFR_FAcomp.T, instFR_FAcomp) # shared covariance matrix
+                    
+                # Perform Singluar value decomposition
+                u,s,__ = np.linalg.svd(cov_type)
+                
+                # Compute Participation Ratio...
+                thisPR = np.power(np.sum(s),2)/np.sum(np.power(s,2))
+                # ... and write it down
+                allPR[nr][t] = thisPR
+                
+        if thoseF==0:
+            allPR_Blank = allPR
+        elif thoseF==1:
+            allPR_Stimulus = allPR
+    
+        if boolPlot==True:
+            meanPR = np.mean(np.array(allPR),axis=1)
+            semPR = np.std(np.array(allPR),axis=1)/np.sqrt(nTimes)
+            
+            plt.errorbar(nROIs,meanPR/nROIs,yerr=semPR)
+            plt.xlabel('Number of ROIs')
+            plt.xticks(nROIs)
+            #plt.ylim((0,25))
+            plt.ylabel(type+' PR/N')
+            # if type=='full':
+            #     plt.ylabel('Full PR')
+            # elif type=='shared':
+            #     plt.ylabel('Shared PR')
+            plt.title('Sampling ROIs '+str(nTimes)+' times')
+        
+                
+    return allPR_Blank,allPR_Stimulus
+
+
+# Plot the average fluorescence over all trial orientations and all ROIs
+def plot_avgFluo(dataFramesPerTrial,charTrials,fluo,frameRate):
+    
+    tmpTime = (1/frameRate)*(np.arange(dataFramesPerTrial)-globalParams.nBlankFrames)
+        
+    charTrials = charTrials[['Orientation','TrialFrame']]
+    data = pd.concat([charTrials, fluo],axis=1)
+    
+    avgPerOri = data.groupby(['TrialFrame','Orientation']).mean()
+    avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
+    avgPerOri = avgPerOri.reset_index()
+
+    tmp = avgPerOri
+    tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
+    tmp = np.reshape(tmp,(dataFramesPerTrial,-1),order='F')
+    tmpMean = np.mean(tmp,axis=1)
+    tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
+    tmpStd = np.std(tmp,axis=1)
+
+    plt.figure()
+    plt.fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
+    plt.plot(tmpTime,tmpMean,color='k')
+    plt.title('Average fluorescence')   
+
+    plt.figure()
+    plt.plot(tmpTime,tmpStd/tmpMean,color='k')
+    plt.title('Average coefficient of variation')             
                 
 
 # Plot the average fluorescence for each trial orientation
-def plot_avgFluoPerOri(dataType,charTrials,fluo,frameRate,title=None):
+def plot_avgFluoPerOri(dataFramesPerTrial,charTrials,fluo,frameRate,title=None):
     
-    if dataType=='L4_cytosolic':
-        tmpTime = (1/frameRate)*(np.arange(25)-5) # np.arange(25)+1
-    elif dataType=='L23_thalamicBoutons':
-        tmpTime = (1/frameRate)*(np.arange(30)-5) # np.arange(30)+1
+    tmpTime = (1/frameRate)*(np.arange(dataFramesPerTrial)-globalParams.nBlankFrames)
         
     charTrials = charTrials[['Orientation','TrialFrame']]
     data = pd.concat([charTrials, fluo],axis=1)
@@ -673,7 +875,66 @@ def plot_avgFluoPerOri(dataType,charTrials,fluo,frameRate,title=None):
         axs[int(o/2), np.mod(o,2)].plot(tmpTime,tmpMean,color='k')
         axs[int(o/2), np.mod(o,2)].set_title('Orientation: '+str(globalParams.ori[o])+'°')
     fig.suptitle(title)
+    
+    fig, axs = plt.subplots(2, 2, sharex=True, sharey=True)
+    for o in range(4):
+        tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]]
+        tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
+        tmpMean = np.mean(tmp,axis=1)
+        tmpStd = np.std(tmp,axis=1)
+        axs[int(o/2), np.mod(o,2)].plot(tmpTime,tmpStd/tmpMean,color='k')
+        axs[int(o/2), np.mod(o,2)].set_title('Orientation: '+str(globalParams.ori[o])+'°')
+    fig.suptitle('Coefficient of variation')
 
+
+# Plot the average fluorescence for each trial orientation for each ROI
+def plot_avgFluoPerOriPerROI(dataFramesPerTrial,charTrials,fluo,frameRate,title=None):
+    
+    tmpTime = (1/frameRate)*(np.arange(dataFramesPerTrial)-globalParams.nBlankFrames)
+        
+    charTrials = charTrials[['Orientation','TrialFrame']]
+    data = pd.concat([charTrials, fluo],axis=1)
+    
+    avgPerOri = data.groupby(['TrialFrame','Orientation']).mean()
+    avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
+    avgPerOri = avgPerOri.reset_index()
+    
+    semPerOri = data.groupby(['TrialFrame','Orientation']).sem()
+    semPerOri = semPerOri.sort_values(['Orientation','TrialFrame'])
+    semPerOri = semPerOri.reset_index()
+    
+    stdPerOri = data.groupby(['TrialFrame','Orientation']).std()
+    stdPerOri = stdPerOri.sort_values(['Orientation','TrialFrame'])
+    stdPerOri = stdPerOri.reset_index()
+    
+    sqrtNP = 5
+    fig, axs = plt.subplots(sqrtNP, sqrtNP, sharex=True, sharey=True)
+    #fig, axs = plt.subplots(sqrtNP, sqrtNP)
+    for n in range(sqrtNP*sqrtNP):
+        for o in range(4):
+            tmp = avgPerOri[n].loc[avgPerOri['Orientation']==globalParams.ori[o]]
+            tmpSEM = semPerOri[n].loc[semPerOri['Orientation']==globalParams.ori[o]]
+            axs[int(n/sqrtNP), np.mod(n,sqrtNP)].fill_between(tmpTime,tmp-tmpSEM,tmp+tmpSEM)
+            axs[int(n/sqrtNP), np.mod(n,sqrtNP)].plot(tmpTime,tmp)
+    fig.suptitle('Fluorescence: mean +/- SEM')
+
+    fig, axs = plt.subplots(sqrtNP, sqrtNP, sharex=True, sharey=True)
+    #fig, axs = plt.subplots(sqrtNP, sqrtNP)
+    for n in range(sqrtNP*sqrtNP):
+        for o in range(4):
+            tmpSEM = semPerOri[n].loc[semPerOri['Orientation']==globalParams.ori[o]]
+            axs[int(n/sqrtNP), np.mod(n,sqrtNP)].plot(tmpTime,tmpSEM)
+    fig.suptitle('SEM')
+    
+    fig, axs = plt.subplots(sqrtNP, sqrtNP, sharex=True, sharey=True)
+    #fig, axs = plt.subplots(sqrtNP, sqrtNP)
+    for n in range(sqrtNP*sqrtNP):
+        for o in range(4):
+            tmp = avgPerOri[n].loc[avgPerOri['Orientation']==globalParams.ori[o]]
+            tmpStd = stdPerOri[n].loc[stdPerOri['Orientation']==globalParams.ori[o]]
+            axs[int(n/sqrtNP), np.mod(n,sqrtNP)].plot(tmpTime,tmpStd/tmp)
+    fig.suptitle('Coefficient of variation')
+      
 
 # Plot the average behavioral trace over all trials
 def plot_avgBehavioralTrace(dataType,charTrials,frameRate,boolMotion,boolPupil):
