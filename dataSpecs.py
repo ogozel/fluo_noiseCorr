@@ -13,7 +13,7 @@ import pandas as pd
 dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
 
-#%% L4_cytosolic data
+#%% L4_cytosolic data: datasets 0 to 10 included
 
 L4_cytosolic_dataSpecs = pd.DataFrame()
 
@@ -52,7 +52,7 @@ L4_cytosolic_dataSpecs.to_hdf(savefilepath,key='L4_cytosolic_dataSpecs')
 
 
 
-#%% L2/3 cytosolic data + thalamic bouton inputs
+#%% L2/3 cytosolic data (+ thalamic boutons to L2/3 for some recording sessions): datasets 0 to 7 included
 
 # NB: The following datasets have the thalamic boutons: [0,2,3,5,6]
 # NB: boutons in dataset [5,6] seem to have a problem (avg fluo per orientation has missing values)
@@ -92,7 +92,7 @@ savefilepath = dataDir + 'L23_thalamicBoutons_dataSpecs.hdf'
 L23_thalamicBoutons_dataSpecs.to_hdf(savefilepath,key='L23_thalamicBoutons_dataSpecs')
 
 
-#%% L4 LGN targeted axons
+#%% L4 LGN targeted axons: datasets 0 to 5 included
 
 L4_LGN_targeted_axons_dataSpecs = pd.DataFrame()
 

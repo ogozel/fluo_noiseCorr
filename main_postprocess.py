@@ -40,7 +40,7 @@ import functions_postprocess
 #%% Parameters of the data to preprocess
 
 ### TO CHOOSE ###
-dataType = 'L4_cytosolic' # 'L4_cytosolic' or 'L23_thalamicBoutons'
+dataType = 'L4_LGN_targeted_axons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 # 'L4_LGN_targeted_axons'
 
 filepath = globalParams.dataDir + dataType + '_dataSpecs.hdf'
@@ -48,7 +48,7 @@ dataSpecs = pd.read_hdf(filepath,dataType+'_dataSpecs')
 
 ### TO CHOOSE ###
 idxDataset = 0 # NB: L2/3 dataset4 has weird avg fluo per ori
-boolBoutons = False
+boolBoutons = True
 # bool_discardFluoPlaneSide = False # By default: False; if we need to discard ROIs on the border of the field of view
 
 
@@ -124,17 +124,17 @@ if motSVD is not None:
 
 #%% use a regression model to explain neuronal variability
 
-# Check linear sridge regression score
-import sklearn.linear_model as lm
-X = np.array(motSVD)
-y = np.array(fluo[0])
-model = lm.LinearRegression() # lm.Ridge(alpha=0.5)
-idxNan = np.where(np.isnan(y))[0]
-y = np.delete(y,idxNan)
-X = np.delete(X,idxNan,axis=0)
-model.fit(X, y)
-betaParams = model.coef_
-model.score(X, y)
+# # Check linear ridge regression score
+# import sklearn.linear_model as lm
+# X = np.array(motSVD)
+# y = np.array(fluo[0])
+# model = lm.LinearRegression() # lm.Ridge(alpha=0.5)
+# idxNan = np.where(np.isnan(y))[0]
+# y = np.delete(y,idxNan)
+# X = np.delete(X,idxNan,axis=0)
+# model.fit(X, y)
+# betaParams = model.coef_
+# model.score(X, y)
 
 
 

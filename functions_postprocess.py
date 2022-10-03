@@ -129,7 +129,7 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,posi
     
     # Number of ROIs we keep
     nROI = dff0.shape[0]
-    print('We intially keep '+str(nROI)+' boutons out of '+str(nROI_init)+' recorded boutons ('+str(np.round(100*nROI/nROI_init))+'%).')
+    print('We intially keep '+str(nROI)+' ROIs out of '+str(nROI_init)+' recorded ROIs ('+str(np.round(100*nROI/nROI_init))+'%).')
     nROI_init = nROI
     ### end
     
