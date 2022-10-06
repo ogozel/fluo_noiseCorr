@@ -122,21 +122,6 @@ if motSVD is not None:
 # example:  data = pd.read_hdf(filepath,'data')
 
 
-#%% use a regression model to explain neuronal variability
-
-# # Check linear ridge regression score
-# import sklearn.linear_model as lm
-# X = np.array(motSVD)
-# y = np.array(fluo[0])
-# model = lm.LinearRegression() # lm.Ridge(alpha=0.5)
-# idxNan = np.where(np.isnan(y))[0]
-# y = np.delete(y,idxNan)
-# X = np.delete(X,idxNan,axis=0)
-# model.fit(X, y)
-# betaParams = model.coef_
-# model.score(X, y)
-
-
 
 
 
