@@ -143,7 +143,7 @@ if boolBoutons:
     print("Taking care of the behavioral data if present...")
     # Pupil data
     charPupil = functions_postprocess.postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path)
-    if charPupil is not None:
+    if charPupil is not None: ## !!! not accurate for L4 boutons!!! (because not same number of frames of fluo and behavior)
         # Plot the average pupil area per orientation
         data = pd.concat([charTrials,charPupil['pupilArea']],axis=1)
         functions_postprocess.plot_avgPupilPerOri(data,dataFramesPerTrial)

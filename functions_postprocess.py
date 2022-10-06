@@ -537,27 +537,41 @@ def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path):
         print("Taking care of pupil data...")
         
         # Read pupil data
-        # if dataType=='L23_thalamicBoutons':
-        f = scipy.io.loadmat(pupilfilepath)
-        tmp = f['pupil']
-        val = tmp[0,0]
-        majorAxisLength = val['MajorAxisLength']
-        minorAxisLength = val['MinorAxisLength']
-        pupilArea = val['pupilArea']
-        xCenter = val['Xc']
-        yCenter = val['Yc']
-        # elif dataType=='L4_LGN_targeted_axons':
-        #     arrays = {}
-        #     f = h5py.File(pupilfilepath,'r')
-        #     for k, v in f.items():
-        #         arrays[k] = np.array(v)
-        #     print('Attention!! Still need to write the code for pupil of L4 boutons')
-
+        if dataType=='L23_thalamicBoutons':
+            
+            f = scipy.io.loadmat(pupilfilepath)
+            tmp = f['pupil']
+            val = tmp[0,0]
+            majorAxisLength = val['MajorAxisLength']
+            minorAxisLength = val['MinorAxisLength']
+            pupilArea = val['pupilArea']
+            xCenter = val['Xc']
+            yCenter = val['Yc']
+            
+        elif dataType=='L4_LGN_targeted_axons':
+            
+            arrays = {}
+            f = h5py.File(pupilfilepath,'r')
+            for k, v in f.items():
+                arrays[k] = np.array(v)
+                
+            pupilArea = arrays['pupilArea'][0]
+            # Not sure of the following variables
+            # majorAxisLength = arrays['r_x'][0]
+            # minorAxisLength = arrays['r_y'][0]
+            # xCenter = (arrays['anterior_x'][0] + arrays['posterior_x'][0] + arrays['ventral_x'][0] + arrays['dorsal_x'][0])/4
+            # yCenter = (arrays['anterior_y'][0] + arrays['posterior_y'][0] + arrays['ventral_y'][0] + arrays['dorsal_y'][0])/4
+            
+            # Discard the last 30 frames of each session (they occured after the end of the 200 trials)
+            pupilArea = np.reshape(pupilArea,(2430,-1),order='F')
+            pupilArea = np.delete(pupilArea,np.arange(2400,2430),axis=0)
+            pupilArea = pupilArea.flatten(order='F')
+            
         charPupil = pd.DataFrame(np.transpose(pupilArea),columns=['pupilArea'])
-        charPupil['majorAxisLength'] = np.transpose(majorAxisLength)
-        charPupil['minorAxisLength'] = np.transpose(minorAxisLength)
-        charPupil['xCenter'] = np.transpose(xCenter)
-        charPupil['yCenter'] = np.transpose(yCenter)
+        # charPupil['majorAxisLength'] = np.transpose(majorAxisLength)
+        # charPupil['minorAxisLength'] = np.transpose(minorAxisLength)
+        # charPupil['xCenter'] = np.transpose(xCenter)
+        # charPupil['yCenter'] = np.transpose(yCenter)
         
     else:
         charPupil = None
@@ -581,6 +595,14 @@ def postprocess_motion(dataType,dataDate,dataMouse,dataDepth,path):
         val = tmp[0,0]
         motSVD = pd.DataFrame(val['motSVD'])
         motAvg = val['mot_avg']
+        
+        if dataType=='L4_LGN_targeted_axons':
+            # Discard the last 30 frames of each session (they occured after the end of the 200 trials)
+            z = []
+            for i in range(5):
+                z.append(i*2400+np.arange(2400,2430,1))
+            z = np.array(z).flatten()
+            motSVD = motSVD.drop(index=z).reset_index(drop=True)
 
         # Plot the average motion
         plt.figure()
