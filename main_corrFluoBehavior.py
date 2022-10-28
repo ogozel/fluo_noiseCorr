@@ -16,6 +16,7 @@ from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
+from scipy import signal
 
 
 os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
@@ -58,6 +59,20 @@ if dataType == 'L23_thalamicBoutons':
 else:
     dataName = dataType #################!!! Ok for now but probably need to change later
 
+
+
+#%% Functions to detrend the data
+
+def butter_highpass(cutoff, fs, order=5):
+    nyq = 0.5 * fs
+    normal_cutoff = cutoff / nyq
+    b, a = signal.butter(order, normal_cutoff, btype = "high", analog = False)
+    return b, a
+
+def butter_highpass_filter(data, cutoff, fs, order=5):
+    b, a = butter_highpass(cutoff, fs, order=order)
+    y = signal.filtfilt(b, a, data)
+    return y
 
 
 #%% Average fluorescence and coefficient of variation
@@ -173,7 +188,25 @@ for dd in range(len(numDatasets)):
                 numROI = fluo.shape[1]
                 numROIhalf = np.floor(numROI/2).astype(int)
                 idxSel = np.random.permutation(numROI)[0:numROIhalf]
-                Y = np.array(fluo)[:,idxSel]
+                
+                ### Start detrend the data
+                for s in range(len(dataSessions)):
+                    thisFluo = fluo.loc[charTrials['Session']==dataSessions[s]]
+                    fluo_interp = fluo.interpolate()
+                    col_withNan = np.where(fluo_interp.isna().any())[0]
+                
+                    # If there are still nan elements in the dataframe, most probably at the beginning
+                    # or end of the timeseries, then replace then with mean value
+                    if len(col_withNan) > 0: 
+                        for c in range(len(col_withNan)):
+                            tmpCol = col_withNan[c]
+                            fluo_interp[tmpCol] = fluo_interp[tmpCol].where(~np.isnan(fluo_interp[tmpCol]),fluo_interp[tmpCol].mean())
+                    
+                    #thisFluo = pd.DataFrame(signal.detrend(fluo_interp))
+                    thisFluo = pd.DataFrame(butter_highpass_filter(signal.detrend(fluo_interp), 0.1, dataFR))
+                ### End detrend the data
+                
+                Y = np.array(thisFluo)[:,idxSel]
                 Y = np.nanmean(Y,axis=1)
                 
                 # Y = np.nanmean(np.array(fluo),axis=1) # Average over all ROIs and all frames for now
@@ -206,11 +239,11 @@ for dd in range(len(numDatasets)):
             # plt.plot(Master_scoreTest,label='LR score - test')
             # plt.xlabel('L4 datasets')
             # plt.legend()
-            plt.figure()
-            plt.errorbar(numDatasets,np.mean(Master_scoreTrain,axis=1),yerr=np.std(Master_scoreTrain,axis=1)/np.sqrt(numCVF),label='LR score - train')
-            plt.errorbar(numDatasets,np.mean(Master_scoreTest,axis=1),yerr=np.std(Master_scoreTest,axis=1)/np.sqrt(numCVF),label='LR score - test')
-            plt.xlabel('L4 datasets')
-            plt.legend()
+            # plt.figure()
+            # plt.errorbar(numDatasets,np.mean(Master_scoreTrain,axis=1),yerr=np.std(Master_scoreTrain,axis=1)/np.sqrt(numCVF),label='LR score - train')
+            # plt.errorbar(numDatasets,np.mean(Master_scoreTest,axis=1),yerr=np.std(Master_scoreTest,axis=1)/np.sqrt(numCVF),label='LR score - test')
+            # plt.xlabel(dataName+' datasets')
+            # plt.legend()
             
         
         #######################################################################
