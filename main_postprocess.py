@@ -36,7 +36,7 @@ import functions_postprocess
 #%% Choose parameters of the data to postprocess
 
 # Type of dataset
-dataType = 'L23_thalamicBoutons'
+dataType = 'L4_cytosolic'
 # 'L4_cytosolic'
 # 'L23_thalamicBoutons'
 # 'L4_LGN_targeted_axons'
@@ -45,7 +45,7 @@ dataType = 'L23_thalamicBoutons'
 idxDataset = 0
 
 # Thalamic boutons ('True') or V1 ROIs ('False')
-boolBoutons = True
+boolBoutons = False
 
 # Neuropil factor
 dataNeuropilSub = globalParams.neuropilSub[3]
@@ -75,7 +75,7 @@ dff0, order, positionROI_3d, nTrialsPerSession = \
                                    nBlankFrames, nStimFrames)
 
 # Parameters for this dataset
-nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight = \
+nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight, __, __ = \
     functions_postprocess.determine_params(dff0, positionROI_3d, nBlankFrames, 
                                            nStimFrames)
 
@@ -142,7 +142,7 @@ if boolBoutons:
                                              nStimFrames)
     
     # Parameters for this dataset
-    nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight = \
+    nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight, __, __ = \
         functions_postprocess.determine_params(dff0, positionROI_3d, 
                                                nBlankFrames ,nStimFrames)
     
