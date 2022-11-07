@@ -24,10 +24,8 @@ This code can be used to postprocess different datasets ('dataType'):
 
 import numpy as np
 import pandas as pd
-import os
-from os import path
 
-os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
+#os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
 
 import globalParams
 import functions_postprocess
@@ -90,7 +88,7 @@ charROI, charTrials, fluo, data, positionROI, distROI, idxKept = \
 
 # Pupil data
 charPupil = functions_postprocess.postprocess_pupil(dataType, dataDate,
-                                                    dataMouse, dataDepth, path)
+                                                    dataMouse, dataDepth)
 # Plot the average pupil area per orientation
 if charPupil is not None:
     data = pd.concat([charTrials, charPupil['pupilArea']], axis=1)
@@ -98,7 +96,7 @@ if charPupil is not None:
     
 # Motion data
 motSVD = functions_postprocess.postprocess_motion(dataType, dataDate, 
-                                                  dataMouse, dataDepth, path)
+                                                  dataMouse, dataDepth)
 
 
 #%% Save data
@@ -157,8 +155,7 @@ if boolBoutons:
     
     # Pupil data
     charPupil = functions_postprocess.postprocess_pupil(dataType, dataDate, 
-                                                        dataMouse, dataDepth,
-                                                        path)
+                                                        dataMouse, dataDepth)
     # Plot the average pupil area per orientation
     # !!! Not accurate for L4 boutons!!! (because not same number of frames of 
     # fluo and behavior)
@@ -168,8 +165,7 @@ if boolBoutons:
     
     # Motion data
     motSVD = functions_postprocess.postprocess_motion(dataType, dataDate, 
-                                                      dataMouse, dataDepth,
-                                                      path)
+                                                      dataMouse, dataDepth)
     
     print("Saving all the data...")
     savefilepath = globalParams.processedDataDir + dataType +'_boutons_' + \

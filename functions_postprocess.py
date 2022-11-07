@@ -13,9 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import scipy.io
-from scipy.ndimage import center_of_mass
+from scipy import ndimage
 import scipy.stats as stats
-from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.metrics import pairwise
 
 import os
 os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
@@ -208,9 +208,9 @@ def selectROIs(dataType, pixelSize, dataSessions, nTrialsPerSession, order,
               np.where(charROI['VisuallyEvoked']==True)[0]
               )/nROI_init).astype(int) )+'%)')
     
-    # Center of mass of ROIs (scipy.ndimage.center_of_mass)
+    # Center of mass of ROIs
     for n in range(nROI_init):
-        this_xCM, this_yCM = center_of_mass(positionROI_3d[n])
+        this_xCM, this_yCM = ndimage.center_of_mass(positionROI_3d[n])
         this_xCM = int(np.round(this_xCM))
         this_yCM = int(np.round(this_yCM))
         if n==0:
@@ -222,7 +222,7 @@ def selectROIs(dataType, pixelSize, dataSessions, nTrialsPerSession, order,
     charROI['yCM'] = pd.DataFrame(cmROI[:,1])
     
     # Compute pairwise distance between all ROIs
-    distROI = pixelSize*euclidean_distances(cmROI)
+    distROI = pixelSize*pairwise.euclidean_distances(cmROI)
     
     # Find pairs of ROIs which are too close to each other
     tmp_idxROItooClose = np.argwhere(distROI<globalParams.threshold_distance)
@@ -580,16 +580,16 @@ def plot_avgPupilPerOri(data,dataFramesPerTrial):
 
 
 # Preprocess pupil data
-def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path):
+def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth):
 
     pupilfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
             dataMouse + '\\' + dataDepth + '\\pupil_manual.mat'
     
-    if not path.isfile(pupilfilepath):
+    if not os.path.isfile(pupilfilepath):
         pupilfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
             dataMouse + '\\' + dataDepth + '\\pupil.mat'
     
-    if path.isfile(pupilfilepath):
+    if os.path.isfile(pupilfilepath):
         
         print("Taking care of pupil data...")
         
@@ -638,12 +638,12 @@ def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path):
 
 
 # Postprocess motion data
-def postprocess_motion(dataType,dataDate,dataMouse,dataDepth,path):
+def postprocess_motion(dataType,dataDate,dataMouse,dataDepth):
 
     motionfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
             dataMouse + '\\' + dataDepth + '\\motion.mat'
     
-    if path.isfile(motionfilepath):
+    if os.path.isfile(motionfilepath):
         
         print("Taking care of motion data...")
         
@@ -810,9 +810,9 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff
     # Size of ROIs
     charROI['Size'] = positionROI.sum(axis=1)
     
-    # Center of mass of ROIs (scipy.ndimage.center_of_mass)
+    # Center of mass of ROIs
     for n in range(dff0.shape[0]):
-        this_xCM, this_yCM = center_of_mass(positionROI_3d[n])
+        this_xCM, this_yCM = ndimage.center_of_mass(positionROI_3d[n])
         this_xCM = int(np.round(this_xCM))
         this_yCM = int(np.round(this_yCM))
         if n==0:
@@ -824,7 +824,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff
     charROI['yCM'] = pd.DataFrame(cmROI[:,1])
     
     # Compute pairwise distance between all ROIs
-    distROI = pixelSize*euclidean_distances(cmROI)
+    distROI = pixelSize*pairwise.euclidean_distances(cmROI)
     
     ### start 2
     # Anova test to determine orientation selectivity
@@ -832,7 +832,7 @@ def selectBoutonROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff
     group1 = avgFluo_Stimulus.loc[globalParams.ori[1]]
     group2 = avgFluo_Stimulus.loc[globalParams.ori[2]]
     group3 = avgFluo_Stimulus.loc[globalParams.ori[3]]
-    f_val, p_val = stats.f_oneway(group0,group1,group2,group3)
+    f_val, p_val = stats.f_oneway(group0, group1, group2, group3)
     bool_OS = (p_val < globalParams.threshold_pval_OS)
     
     # Not visually evoked ROIs cannot be orientation selective
