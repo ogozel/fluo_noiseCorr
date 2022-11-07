@@ -10,7 +10,6 @@ Functions to do the preprocessing
 import h5py
 import pandas as pd
 import numpy as np
-import random as rnd
 import matplotlib.pyplot as plt
 from matplotlib import colors
 import scipy.io
@@ -26,9 +25,14 @@ import globalParams
 
 
 
-def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,nBlankFrames,nStimFrames):
+def loadData(dataType, dataSessions, dataDate, dataMouse, dataDepth, 
+             dataNeuropilSub, nBlankFrames, nStimFrames):
+    """Load all sessions of one recording dataset."""
     
-    nTrialsPerSession = np.zeros(len(dataSessions),dtype=int)
+    # Initialization
+    nTrialsPerSession = np.zeros(len(dataSessions), dtype=int)
+    
+    # Loop over all sessions of the recording dataset of interest
     for s in range(len(dataSessions)):
     
         sessionNumber = dataSessions[s]
@@ -36,37 +40,43 @@ def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,
         
         filepath = []
         if dataType == 'L4_cytosolic':
-            filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-                dataMouse + '\\' + dataDepth + '\\S' + str(sessionNumber) + \
-                    '\\ROI_' + dataDate + '_RM_S' + str(sessionNumber) + \
-                        '_Intensity_unweighted_s2p_' + dataNeuropilSub + '.mat')
+            filepath.append(globalParams.dataDir + dataType +'\\' + dataDate \
+                            + '_' + dataMouse + '\\' + dataDepth + '\\S' \
+                            + str(sessionNumber) + '\\ROI_' + dataDate \
+                            + '_RM_S' + str(sessionNumber) \
+                            + '_Intensity_unweighted_s2p_' + dataNeuropilSub \
+                            + '.mat')
             # filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
             #     dataMouse + '\\' + dataDepth + '\\Updated_July2022\\' + \
             #         '\\ROI_' + dataDate + '_S' + str(sessionNumber) + \
             #             '_Intensity_unweighted_imj_' + dataNeuropilSub + '.mat')
                 
         elif dataType == 'L23_thalamicBoutons':
-            filepath.append(globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-                                dataMouse + '\\' + dataDepth + '\\L23\\ROI_' + \
-                                    '' + dataDate + '_' + dataDepth + '_S' + str(sessionNumber) + \
-                                            '_Intensity_unweighted_' + dataNeuropilSub + '.mat')
+            filepath.append(globalParams.dataDir + dataType +'\\' + dataDate \
+                            + '_' + dataMouse + '\\' + dataDepth \
+                            + '\\L23\\ROI_' + '' + dataDate + '_' + dataDepth \
+                            + '_S' + str(sessionNumber) \
+                            + '_Intensity_unweighted_' + dataNeuropilSub \
+                            + '.mat')
         
-        
+        # Make sure that the following variables are empty
         this_dff0 = []
         this_order = []
         this_positionROI3d = []
-
+        
+        # Read current recording session
         arrays = {}
-        f = h5py.File(filepath[0],'r')
+        f = h5py.File(filepath[0], 'r')
         for k, v in f.items():
             arrays[k] = np.array(v)
         
-        
-        this_order = arrays['order'][0] # the orientation for each frame (also blank frames)
+        # Grating orientation for each frame (also blank frames)
+        this_order = arrays['order'][0]
+        # Fluorescence data
         if dataType == 'L4_cytosolic':
-            this_dff0 = arrays['dff0'] # fluorescence data
+            this_dff0 = arrays['dff0']
         elif dataType == 'L23_thalamicBoutons':
-            this_dff0 = arrays['dff0_allstacks'] # fluorescence data
+            this_dff0 = arrays['dff0_allstacks']
         nTrialsPerSession[s] = int(this_dff0.shape[1]/dataFramesPerTrial)
         this_positionROI3d = arrays['bw']
         
@@ -75,41 +85,46 @@ def loadData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,
             dff0 = this_dff0
             order = this_order
         else:
-            dff0 = np.concatenate((dff0,this_dff0),axis=1)
-            order = np.concatenate((order,this_order),axis=0)
+            dff0 = np.concatenate((dff0, this_dff0), axis=1)
+            order = np.concatenate((order, this_order), axis=0)
             
         # Save info about the ROIs for the first session only
         if s==0:
             positionROI_3d = this_positionROI3d
     
-    return dff0,order,positionROI_3d,nTrialsPerSession
+    return dff0, order, positionROI_3d, nTrialsPerSession
 
 
-
-def determine_params(dff0,positionROI_3d,nBlankFrames,nStimFrames):
+def determine_params(dff0, positionROI_3d, nBlankFrames, nStimFrames):
+    """ Determine the parameters of the current recording dataset, once all
+    sessions are combined."""
     
-    nROI_init = dff0.shape[0] # number of neurons before preprocessing
-    nFrames = dff0.shape[1] # number of fluorescence frames
+    # Number of neurons before postprocessing
+    nROI_init = dff0.shape[0]
+    # Total number of fluorescence frames
+    nFrames = dff0.shape[1]
+    # Number of frames per trial
     dataFramesPerTrial = nBlankFrames + nStimFrames
+    # Total number of trials
     nTrials = int(nFrames/dataFramesPerTrial)
+    # Width and height of the imaging plane
     fluoPlaneWidth = positionROI_3d.shape[1]
     fluoPlaneHeight = positionROI_3d.shape[2]
     
-    return nROI_init,nTrials,fluoPlaneWidth,fluoPlaneHeight
+    return (nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight, nFrames, 
+            dataFramesPerTrial)
 
 
-
-def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,positionROI_3d,nBlankFrames,nStimFrames):
+def selectROIs(dataType, pixelSize, dataSessions, nTrialsPerSession, order, 
+               dff0, positionROI_3d, nBlankFrames, nStimFrames):
+    """Select ROIs to be kept for subsequent analysis, and classify them into 
+    different categories."""
     
-    # Parameters
-    nROI_init = dff0.shape[0] # number of neurons before preprocessing
-    nFrames = dff0.shape[1] # number of fluorescence frames
-    dataFramesPerTrial = nBlankFrames + nStimFrames
-    nTrials = int(nFrames/dataFramesPerTrial)
-    fluoPlaneWidth = positionROI_3d.shape[1]
-    fluoPlaneHeight = positionROI_3d.shape[2]
+    # Parameters for this dataset
+    (nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight, nFrames, 
+     dataFramesPerTrial) = determine_params(dff0, positionROI_3d, nBlankFrames,
+                                            nStimFrames)
     
-    ### start
     # (1) Set 'inf' dff0 values to 'nan'
     tmpBoolInf = np.isinf(dff0)
     dff0[tmpBoolInf] = np.nan
@@ -120,21 +135,23 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,posi
     dff0[tmpBoolTooHigh] = np.nan
     dff0[tmpBoolTooLow] = np.nan
     
-    # (3) Discard boutons that have more than 25% of dff0 values which are 'nan'
+    # (3) Discard boutons that have >=25% of dff0 values which are 'nan'
     tmpBoolNan = np.isnan(dff0)
-    tmpSum = np.sum(tmpBoolNan,axis=1)
+    tmpSum = np.sum(tmpBoolNan, axis=1)
     tmpIdx = np.where((tmpSum/nFrames) < 0.25)[0]
     dff0 = dff0[tmpIdx,:]
     positionROI_3d = positionROI_3d[tmpIdx]
     
     # Number of ROIs we keep
     nROI = dff0.shape[0]
-    print('We intially keep '+str(nROI)+' ROIs out of '+str(nROI_init)+' recorded ROIs ('+str(np.round(100*nROI/nROI_init))+'%).')
+    print('We intially keep ' + str(nROI) + ' ROIs out of ' + str(nROI_init) \
+          +' recorded ROIs (' + str( np.round(100*nROI/nROI_init) ) + '%).')
     nROI_init = nROI
-    ### end
     
     # Create a DataFrame for the ROI positions
-    positionROI = pd.DataFrame(positionROI_3d.reshape(nROI_init,fluoPlaneWidth*fluoPlaneHeight))
+    positionROI = pd.DataFrame(
+        positionROI_3d.reshape(nROI_init, fluoPlaneWidth*fluoPlaneHeight)
+        )
     
     # Create a DataFrame for the fluorescence data
     fluo_array = np.transpose(dff0)
@@ -144,42 +161,52 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,posi
     charROI = pd.DataFrame()
     
     # Create a DataFrame for the trial characteristics
-    charTrials = pd.DataFrame(np.repeat(dataSessions,dataFramesPerTrial*(nTrialsPerSession)),columns=['Session'])
-    charTrials['Trial'] = np.repeat(np.arange(nTrials),dataFramesPerTrial)
-    charTrials['TrialFrame'] = np.tile(np.arange(dataFramesPerTrial),nTrials)
+    charTrials = pd.DataFrame(
+        np.repeat(dataSessions, dataFramesPerTrial*(nTrialsPerSession)), 
+        columns=['Session']
+        )
+    charTrials['Trial'] = np.repeat(np.arange(nTrials), dataFramesPerTrial)
+    charTrials['TrialFrame'] = np.tile(np.arange(dataFramesPerTrial), nTrials)
     
-    tmp = np.concatenate((np.repeat(['Blank'],nBlankFrames),\
-                          np.repeat(['Stimulus'],nStimFrames))) 
-    frameType = np.tile(tmp,nTrials)
+    tmp = np.concatenate((np.repeat(['Blank'], nBlankFrames),
+                          np.repeat(['Stimulus'], nStimFrames))) 
+    frameType = np.tile(tmp, nTrials)
     charTrials['FrameType'] = frameType
     charTrials['Orientation'] = order
     
-    data = pd.concat([charTrials,fluo],axis=1)
+    data = pd.concat([charTrials, fluo], axis=1)
     
-    # Average fluorescence value for blank frames and stimulus frames for each trial
+    # Average fluorescence value for blank and stimulus frames for each trial
     avgFluo_Blank = data.loc[data['FrameType']=='Blank'].groupby(['Orientation','Trial']).mean()
     avgFluo_Blank = avgFluo_Blank.droplevel(level=1)
-    avgFluo_Blank = avgFluo_Blank.drop(columns=['Session','TrialFrame'])
-    avgFluo_Stimulus = data.loc[data['FrameType']=='Stimulus'].groupby(['Orientation','Trial']).mean()
+    avgFluo_Blank = avgFluo_Blank.drop(columns=['Session', 'TrialFrame'])
+    avgFluo_Stimulus = data.loc[data['FrameType']=='Stimulus'].groupby(['Orientation', 'Trial']).mean()
     avgFluo_Stimulus = avgFluo_Stimulus.droplevel(level=1)
-    avgFluo_Stimulus = avgFluo_Stimulus.drop(columns=['Session','TrialFrame'])
+    avgFluo_Stimulus = avgFluo_Stimulus.drop(columns=['Session', 'TrialFrame'])
     
-    # Anova test to determine which ROIs are visually responsive (=are activated by the grating stimuli)
-    bool_visuallyResp = np.zeros((nROI_init,globalParams.nOri))
+    # Anova test to determine which ROIs are visually responsive
+    # (=are activated by the grating stimuli)
+    bool_visuallyResp = np.zeros((nROI_init, globalParams.nOri))
     for o in range(globalParams.nOri):
         thisB = avgFluo_Blank.loc[globalParams.ori[o]]
         thisG = avgFluo_Stimulus.loc[globalParams.ori[o]]
-        F,pval = stats.f_oneway(thisB,thisG)
-        bool_visuallyResp[:,o] = (pval < globalParams.threshold_pval_visuallyEvoked)
+        F, pval = stats.f_oneway(thisB, thisG)
+        bool_visuallyResp[:,o] = \
+            (pval < globalParams.threshold_pval_visuallyEvoked)
     
-    idxVE = np.where(np.sum(bool_visuallyResp,axis=1) > 0)[0]
-    charROI['VisuallyEvoked'] =  np.array([True if i in idxVE else False for i in range(nROI_init)])
+    idxVE = np.where(np.sum(bool_visuallyResp, axis=1) > 0)[0]
+    charROI['VisuallyEvoked'] = \
+        np.array([True if i in idxVE else False for i in range(nROI_init)])
     
     # Orientation preference
     tmpAvg = avgFluo_Stimulus.groupby('Orientation').mean()
     charROI['PrefOri'] = tmpAvg.idxmax(axis=0)
     
-    print(str(len(np.where(charROI['VisuallyEvoked']==True)[0]))+' out of '+str(nROI_init)+' ROIs are visually responsive ('+str(np.round(100*len(np.where(charROI['VisuallyEvoked']==True)[0])/nROI_init).astype(int))+'%)')
+    print(str(len(np.where(charROI['VisuallyEvoked']==True)[0])) + ' out of ' \
+          + str(nROI_init) + ' ROIs are visually responsive (' \
+          + str(np.round( 100*len(
+              np.where(charROI['VisuallyEvoked']==True)[0]
+              )/nROI_init).astype(int) )+'%)')
     
     # Center of mass of ROIs (scipy.ndimage.center_of_mass)
     for n in range(nROI_init):
@@ -187,9 +214,9 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,posi
         this_xCM = int(np.round(this_xCM))
         this_yCM = int(np.round(this_yCM))
         if n==0:
-            cmROI = np.array([[this_xCM,this_yCM]])
+            cmROI = np.array([[this_xCM, this_yCM]])
         else:
-            cmROI = np.append(cmROI,np.array([[this_xCM,this_yCM]]),axis=0)
+            cmROI = np.append(cmROI, np.array([[this_xCM, this_yCM]]), axis=0)
             
     charROI['xCM'] = pd.DataFrame(cmROI[:,0])
     charROI['yCM'] = pd.DataFrame(cmROI[:,1])
@@ -203,153 +230,183 @@ def selectROIs(dataType,pixelSize,dataSessions,nTrialsPerSession,order,dff0,posi
     # Size of ROIs (unit: pixels)
     charROI['Size'] = positionROI.sum(axis=1)
     
-    # Find the ROI which are the smallest of a pair which is too close (to discard)
+    # Discard smallest ROI of a pair which is too close
     idxROItooClose = []
     for i in range(tmp_idxROItooClose.shape[0]):
         this_pair = tmp_idxROItooClose[i,:]
         if this_pair[0] != this_pair[1]:
-            if ~np.isin(this_pair[0],idxROItooClose) & ~np.isin(this_pair[1],idxROItooClose):
+            if (~np.isin(this_pair[0], idxROItooClose) 
+                & ~np.isin(this_pair[1], idxROItooClose)):
                 tmpSize0 = charROI['Size'][this_pair[0]]
                 tmpSize1 = charROI['Size'][this_pair[1]]
                 if tmpSize0 < tmpSize1:
-                    idxROItooClose = np.append(idxROItooClose,this_pair[0])
+                    idxROItooClose = np.append(idxROItooClose, this_pair[0])
                 else:
-                    idxROItooClose = np.append(idxROItooClose,this_pair[1])
+                    idxROItooClose = np.append(idxROItooClose, this_pair[1])
     
-    # Are ROIs far enough? (if not: discard smallest one of the pair)
-    print('There are '+str(len(idxROItooClose))+' ROIs which are discarded because they are too close from another (bigger) ROI')
-    charROI['farEnough'] = np.array([False if i in idxROItooClose else True for i in range(nROI_init)])
+    print('There are ' + str(len(idxROItooClose)) + ' ROIs which are discarded'
+          + ' because they are too close from another (bigger) ROI')
+    charROI['farEnough'] = np.array(
+        [False if i in idxROItooClose else True for i in range(nROI_init)]
+        )
     
     # Anova test to determine orientation selectivity
     group0 = avgFluo_Stimulus.loc[globalParams.ori[0]]
     group1 = avgFluo_Stimulus.loc[globalParams.ori[1]]
     group2 = avgFluo_Stimulus.loc[globalParams.ori[2]]
     group3 = avgFluo_Stimulus.loc[globalParams.ori[3]]
-    f_val, p_val = stats.f_oneway(group0,group1,group2,group3)
+    f_val, p_val = stats.f_oneway(group0, group1, group2, group3)
     bool_OS = (p_val < globalParams.threshold_pval_OS)
     
     # Not visually evoked ROIs cannot be orientation selective
-    idxNotVE = np.where((charROI['VisuallyEvoked']==False)&(bool_OS==True))[0]
+    idxNotVE = np.where( (charROI['VisuallyEvoked']==False) & (bool_OS==True)
+                        )[0]
     bool_OS[idxNotVE] = 0
     
-    # Are ROIs orientation-selective
-    nOS = len(np.where(bool_OS==True)[0])
-    nVE = len(np.where(charROI['VisuallyEvoked']==True)[0])
-    print('There are '+str(nOS)+' visually evoked ROIs which are orientation selective ('+str(np.round(100*nOS/nVE).astype(int))+'%)')
-    charROI['OS'] = np.array([True if bool_OS[i]==1 else False for i in range(nROI_init)])
+    # Determine orientation-selectivity of ROIs
+    nOS = len( np.where(bool_OS==True)[0] )
+    nVE = len( np.where(charROI['VisuallyEvoked']==True)[0] )
+    print('There are ' + str(nOS) + ' visually evoked ROIs which are '
+          + 'orientation selective (' 
+          + str( np.round(100*nOS/nVE ).astype(int)) + '%)')
+    charROI['OS'] = np.array(
+        [True if bool_OS[i]==1 else False for i in range(nROI_init)]
+        )
     
     # Determine which ROIs we keep for the analyses
     charROI['keptROI'] = charROI['farEnough']
     
     # Plot all ROIs
     plt.figure()
-    plt.imshow(np.transpose(np.sum(positionROI_3d,axis=0)))
+    plt.imshow( np.transpose( np.sum(positionROI_3d, axis=0) ) )
     plt.title('All ROIs')
     
-    idxNotVR = np.where(charROI['VisuallyEvoked']==False)[0]
+    idxNotVR = np.where( charROI['VisuallyEvoked']==False )[0]
     plt.figure()
-    plt.imshow(np.transpose(np.sum(positionROI_3d[idxNotVR],axis=0)))
+    plt.imshow( np.transpose( np.sum(positionROI_3d[idxNotVR], axis=0) ) )
     plt.title('Not visually-evoked ROIs')
     
-    # Discard bad ROIs
-    idxKept = np.where(charROI['keptROI']==True)[0]
+    # Discard ROIs
+    idxKept = np.where( charROI['keptROI']==True )[0]
     fluo_array = fluo_array[:,idxKept]
     fluo = pd.DataFrame(fluo_array)
-    positionROI = pd.DataFrame(np.array(positionROI)[idxKept,:])
+    positionROI = pd.DataFrame( np.array(positionROI)[idxKept,:] )
     positionROI_3d = positionROI_3d[idxKept,:,:]
     distROI = distROI[idxKept,:][:,idxKept]
     charROI = charROI[charROI['keptROI']==True].reset_index()
     charROI = charROI.drop(columns=['index','farEnough','keptROI'])
-    data = pd.concat([charTrials, fluo],axis=1)
+    data = pd.concat([charTrials, fluo], axis=1)
     
-    # Number of ROIs we keep after preprocessing
+    # Number of ROIs we keep after postprocessing
     nROI = charROI.shape[0]
 
-    # Plot all kept ROIs at the end of preprocessing
+    # Plot all kept ROIs at the end of postprocessing
     plt.figure()
-    plt.imshow(np.transpose(np.sum(positionROI_3d,axis=0)))
+    plt.imshow( np.transpose( np.sum(positionROI_3d, axis=0) ) )
     plt.title('ROIs kept after postprocessing')
     
     # Plot all kept ROIs with their selectivity
-    plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
+    plot_ROIwithSelectivity(charROI, positionROI, fluoPlaneWidth, 
+                            fluoPlaneHeight)
     
     # Plot the average fluorescence over all ROIs for each trial orientation
-    plot_avgFluoPerOri(data,dataFramesPerTrial)
+    plot_avgFluoPerOri(data, dataFramesPerTrial)
     
-    # Plot the average fluorescence over only the OS ROIs for each trial orientation
-    idxOS = np.where(charROI['OS']==True)[0]
+    # Plot the average fluorescence over only the OS ROIs for the corresponding
+    # trial orientation
+    idxOS = np.where( charROI['OS']==True )[0]
     fluo_array = fluo_array[:,idxOS]
     fluoOS = pd.DataFrame(fluo_array)
-    dataOS = pd.concat([charTrials, fluoOS],axis=1)
-    plot_avgFluoPerOri(dataOS,dataFramesPerTrial)
+    dataOS = pd.concat([charTrials, fluoOS], axis=1)
+    plot_avgFluoPerOri(dataOS, dataFramesPerTrial)
     
-    print('We keep '+str(nROI)+' ROIs out of '+str(nROI_init)+' recorded ROIs ('+str(np.round(100*nROI/nROI_init).astype(int))+'%).')
+    print('We keep ' + str(nROI) + ' ROIs out of ' + str(nROI_init)
+          +' recorded ROIs (' 
+          + str( np.round(100*nROI/nROI_init).astype(int) ) + '%).')
         
-    return charROI,charTrials,fluo,data,positionROI,distROI,idxKept
+    return charROI, charTrials, fluo, data, positionROI, distROI, idxKept
 
 
-
-
-
-def plot_ROIwithSelectivity(charROI,positionROI,fluoPlaneWidth,fluoPlaneHeight):
+def plot_ROIwithSelectivity(charROI, positionROI, fluoPlaneWidth, 
+                            fluoPlaneHeight):
+    """Plot the ROIs color-coded according to their orientation selectivity."""
     
     positionROI = np.array(positionROI)
-    positionROI_3d = positionROI.reshape((positionROI.shape[0],fluoPlaneWidth,fluoPlaneHeight))
+    positionROI_3d = positionROI.reshape(
+        (positionROI.shape[0], fluoPlaneWidth, fluoPlaneHeight)
+        )
     
-    coloredROI = np.zeros((fluoPlaneHeight,fluoPlaneWidth))
-    for i in range(len(globalParams.ori)):
-        tmpIdx = np.squeeze(np.array(np.where((charROI['OS']==True) & (charROI['PrefOri']==globalParams.ori[i]))))
+    coloredROI = np.zeros( (fluoPlaneHeight, fluoPlaneWidth) )
+    for i in range( len(globalParams.ori) ):
+        tmpIdx = np.squeeze(np.array(
+                                np.where((charROI['OS']==True) 
+                                & (charROI['PrefOri']==globalParams.ori[i]))
+                                )
+                            )
+    
         if tmpIdx.size==1:
-            tmp = np.clip((i+1)*positionROI_3d[tmpIdx],0,i+1)
+            tmp = np.clip((i+1)*positionROI_3d[tmpIdx], 0, i+1 )
         else:
-            tmp = np.clip(np.sum((i+1)*positionROI_3d[tmpIdx],axis=0),0,i+1)
-        coloredROI = np.clip(coloredROI + tmp,0,i+1)
+            tmp = np.clip(np.sum((i+1)*positionROI_3d[tmpIdx], axis=0), 0, i+1)
+        coloredROI = np.clip(coloredROI + tmp, 0, i+1)
     
     # Visually responsive non-OS ROIs
-    tmpIdx = np.where((charROI['VisuallyEvoked']==True)&(charROI['OS']==False))[0]
+    tmpIdx = np.where((charROI['VisuallyEvoked']==True) 
+                      & (charROI['OS']==False)
+                      )[0]
     if tmpIdx.size==1:
-        tmp = np.clip((len(globalParams.ori)+1)*positionROI_3d[tmpIdx,:,:],0,len(globalParams.ori)+1)
+        tmp = np.clip((len(globalParams.ori)+1)*positionROI_3d[tmpIdx,:,:], 
+                      0, len(globalParams.ori)+1)
     else:
-        tmp = np.clip(np.sum((len(globalParams.ori)+1)*positionROI_3d[tmpIdx,:,:],axis=0),0,len(globalParams.ori)+1)
+        tmp = np.clip(np.sum( 
+            (len(globalParams.ori)+1)*positionROI_3d[tmpIdx,:,:], axis=0
+            ), 0, len(globalParams.ori)+1)
     coloredROI = np.clip(coloredROI + tmp, 0, len(globalParams.ori)+1)
     
     # Clip the values for overlaps
-    coloredROI = np.clip(coloredROI,0,len(globalParams.ori)+1)
+    coloredROI = np.clip(coloredROI, 0, len(globalParams.ori)+1)
     
     # Non-visually responsive ROIs (=spontaneously active ROIs)
     tmpIdx = np.where(charROI['VisuallyEvoked']==False)[0]
     if tmpIdx.size==1:
-        tmp = np.clip((len(globalParams.ori)+2)*positionROI_3d[tmpIdx,:,:],0,len(globalParams.ori)+2)
+        tmp = np.clip((globalParams.nOri+2)*positionROI_3d[tmpIdx,:,:],
+                      0, len(globalParams.ori)+2)
     else:
-        tmp = np.clip(np.sum((len(globalParams.ori)+2)*positionROI_3d[tmpIdx,:,:],axis=0),0,len(globalParams.ori)+2)
+        tmp = np.clip(np.sum((globalParams.nOri+2)*positionROI_3d[tmpIdx,:,:],
+                             axis=0),
+                      0, len(globalParams.ori)+2)
     coloredROI = np.clip(coloredROI + tmp, 0, len(globalParams.ori)+2)
     
     # Create colormap
-    cmap = colors.ListedColormap(['white', 'red', 'green', 'blue', 'orange', 'black', 'grey'])
-    bounds = np.linspace(0,7,8)
+    cmap = colors.ListedColormap(['white', 'red', 'green', 'blue', 'orange',
+                                  'black', 'grey'])
+    bounds = np.linspace(0, 7, 8)
     norm = colors.BoundaryNorm(bounds, cmap.N)
     
     plt.figure()
     # tell imshow about color map so that only set colors are used
-    img = plt.imshow(np.transpose(coloredROI), interpolation='nearest', cmap=cmap, norm=norm)
+    img = plt.imshow(np.transpose(coloredROI), interpolation='nearest', 
+                     cmap=cmap, norm=norm)
     
     # make a color bar (it uses 'cmap' and 'norm' form above)
-    cbar = plt.colorbar(img, boundaries=np.linspace(1,7,7), ticks=np.linspace(1.5,6.5,6))
+    cbar = plt.colorbar(img, boundaries=np.linspace(1,7,7),
+                        ticks=np.linspace(1.5, 6.5, 6))
     cbar.ax.set_yticklabels(['45°', '135°','180°','270°','non-OS','spont'])
 
-    
     plt.title('Kept ROIs with orientation selectivity')
     #plt.savefig('ROIwithSel.eps', format='eps')
 
 
-
 # Plot all kept V1 ROIs and thalamic axons at the end of preprocessing
-def plot_ROIwithBoutons(positionROI,positionBoutons,fluoPlaneWidth,fluoPlaneHeight,idxOverlappingBoutons=None):
+def plot_ROIwithBoutons(positionROI, positionBoutons, fluoPlaneWidth, 
+                        fluoPlaneHeight, idxOverlappingBoutons=None):
     
     positionROI = np.array(positionROI)
     positionBoutons = np.array(positionBoutons)
-    positionROI_3d = positionROI.reshape((positionROI.shape[0],fluoPlaneWidth,fluoPlaneHeight))
-    positionBoutons_3d = positionBoutons.reshape((positionBoutons.shape[0],fluoPlaneWidth,fluoPlaneHeight))
+    positionROI_3d = positionROI.reshape((positionROI.shape[0], fluoPlaneWidth,
+                                          fluoPlaneHeight))
+    positionBoutons_3d = positionBoutons.reshape((positionBoutons.shape[0],
+                                                  fluoPlaneWidth, fluoPlaneHeight))
     
     if idxOverlappingBoutons is None:
         idxOverlappingBoutons = np.arange(0,positionBoutons_3d.shape[0])
@@ -537,7 +594,7 @@ def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth,path):
         print("Taking care of pupil data...")
         
         # Read pupil data
-        if dataType=='L23_thalamicBoutons':
+        if (dataType=='L4_cytosolic') | (dataType=='L23_thalamicBoutons'):
             
             f = scipy.io.loadmat(pupilfilepath)
             tmp = f['pupil']
