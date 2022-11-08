@@ -24,8 +24,9 @@ This code can be used to postprocess different datasets ('dataType'):
 
 import numpy as np
 import pandas as pd
+import os
 
-#os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
+os.chdir('C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Code_python\\')
 
 import globalParams
 import functions_postprocess
@@ -74,7 +75,7 @@ dff0, order, positionROI_3d, nTrialsPerSession = \
 
 # Parameters for this dataset
 nROI_init, nTrials, fluoPlaneWidth, fluoPlaneHeight, __, __ = \
-    functions_postprocess.determine_params(dff0, positionROI_3d, nBlankFrames, 
+    functions_postprocess.determine_params(dff0, positionROI_3d, nBlankFrames,
                                            nStimFrames)
 
 print("Classifying neurons...")

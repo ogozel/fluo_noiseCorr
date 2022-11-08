@@ -177,10 +177,12 @@ def selectROIs(dataType, pixelSize, dataSessions, nTrialsPerSession, order,
     data = pd.concat([charTrials, fluo], axis=1)
     
     # Average fluorescence value for blank and stimulus frames for each trial
-    avgFluo_Blank = data.loc[data['FrameType']=='Blank'].groupby(['Orientation','Trial']).mean()
+    tmpBlank = data.loc[data['FrameType']=='Blank']
+    avgFluo_Blank = tmpBlank.groupby(['Orientation','Trial']).mean()
     avgFluo_Blank = avgFluo_Blank.droplevel(level=1)
     avgFluo_Blank = avgFluo_Blank.drop(columns=['Session', 'TrialFrame'])
-    avgFluo_Stimulus = data.loc[data['FrameType']=='Stimulus'].groupby(['Orientation', 'Trial']).mean()
+    tmpStim = data.loc[data['FrameType']=='Stimulus']
+    avgFluo_Stimulus = tmpStim.groupby(['Orientation','Trial']).mean()
     avgFluo_Stimulus = avgFluo_Stimulus.droplevel(level=1)
     avgFluo_Stimulus = avgFluo_Stimulus.drop(columns=['Session', 'TrialFrame'])
     
@@ -202,8 +204,8 @@ def selectROIs(dataType, pixelSize, dataSessions, nTrialsPerSession, order,
     tmpAvg = avgFluo_Stimulus.groupby('Orientation').mean()
     charROI['PrefOri'] = tmpAvg.idxmax(axis=0)
     
-    print(str(len(np.where(charROI['VisuallyEvoked']==True)[0])) + ' out of ' \
-          + str(nROI_init) + ' ROIs are visually responsive (' \
+    print(str(len(np.where(charROI['VisuallyEvoked']==True)[0])) + ' out of '
+          + str(nROI_init) + ' ROIs are visually responsive ('
           + str(np.round( 100*len(
               np.where(charROI['VisuallyEvoked']==True)[0]
               )/nROI_init).astype(int) )+'%)')
@@ -332,17 +334,13 @@ def plot_ROIwithSelectivity(charROI, positionROI, fluoPlaneWidth,
     """Plot the ROIs color-coded according to their orientation selectivity."""
     
     positionROI = np.array(positionROI)
-    positionROI_3d = positionROI.reshape(
-        (positionROI.shape[0], fluoPlaneWidth, fluoPlaneHeight)
-        )
+    positionROI_3d = positionROI.reshape((positionROI.shape[0], fluoPlaneWidth,
+                                          fluoPlaneHeight))
     
     coloredROI = np.zeros( (fluoPlaneHeight, fluoPlaneWidth) )
     for i in range( len(globalParams.ori) ):
-        tmpIdx = np.squeeze(np.array(
-                                np.where((charROI['OS']==True) 
-                                & (charROI['PrefOri']==globalParams.ori[i]))
-                                )
-                            )
+        tmpIdx = np.where((charROI['OS']==True) 
+                          & (charROI['PrefOri']==globalParams.ori[i]))[0]
     
         if tmpIdx.size==1:
             tmp = np.clip((i+1)*positionROI_3d[tmpIdx], 0, i+1 )
@@ -485,109 +483,68 @@ def plot_eachROIwithBoutons(positionROI,positionBoutons,fluoPlaneWidth,fluoPlane
         plt.title('ROI '+str(tmpIdxROI)+' with thalamic boutons')
 
 
-
-
-# Plot the average fluorescence for each trial orientation
-def plot_avgFluoPerOri(data,dataFramesPerTrial):
+def plot_avgFluoPerOri(data, dataFramesPerTrial):
+    """Plot the average fluorescence for each trial orientation."""
     
     tmpTime = np.arange(dataFramesPerTrial)+1
-    avgPerOri = data.drop(['Session','Trial','FrameType'],axis=1).groupby(['TrialFrame','Orientation']).mean()
+    tmp = data.drop(['Session','Trial','FrameType'],axis=1)
+    avgPerOri = tmp.groupby(['TrialFrame','Orientation']).mean()
     avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
     avgPerOri = avgPerOri.reset_index()
     
     fig, axs = plt.subplots(2, 2)
-    
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[0]]
-    tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
-    tmpMean = np.mean(tmp,axis=1)
-    tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
-    axs[0, 0].plot(tmpTime,tmpMean)
-    axs[0, 0].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[0, 0].set_title('Orientation: '+str(globalParams.ori[0])+'°')
-    
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[1]]
-    tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
-    tmpMean = np.mean(tmp,axis=1)
-    tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
-    axs[0, 1].plot(tmpTime,tmpMean)
-    axs[0, 1].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[0, 1].set_title('Orientation: '+str(globalParams.ori[1])+'°')
-    
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[2]]
-    tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
-    tmpMean = np.mean(tmp,axis=1)
-    tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
-    axs[1, 0].plot(tmpTime,tmpMean)
-    axs[1, 0].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[1, 0].set_title('Orientation: '+str(globalParams.ori[2])+'°')
-    
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[3]]
-    tmp = np.array(tmp.drop(['TrialFrame','Orientation'],axis=1))
-    tmpMean = np.mean(tmp,axis=1)
-    tmpSEM = np.std(tmp,axis=1)/np.sqrt(tmp.shape[1])
-    axs[1, 1].plot(tmpTime,tmpMean)
-    axs[1, 1].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[1, 1].set_title('Orientation: '+str(globalParams.ori[3])+'°')
-    
-    
-# Plot the average pupil area for each trial orientation
-def plot_avgPupilPerOri(data,dataFramesPerTrial):
+    o = 0
+    for x in range(2):
+        for y in range(2):
+            tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]]
+            tmp = np.array(tmp.drop(['TrialFrame','Orientation'], axis=1))
+            tmpMean = np.mean(tmp, axis=1)
+            tmpSEM = np.std(tmp, axis=1)/np.sqrt(tmp.shape[1])
+            axs[x,y].plot(tmpTime, tmpMean)
+            axs[x,y].fill_between(tmpTime, tmpMean-tmpSEM, tmpMean+tmpSEM)
+            axs[x,y].set_title('Orientation: ' + str(globalParams.ori[o]) + '°')
+            o +=1
+
+
+def plot_avgPupilPerOri(data, dataFramesPerTrial):
+    """Plot the average pupil area for each trial orientation."""
     
     tmpTime = np.arange(dataFramesPerTrial)+1
-    avgPerOri = data.drop(['Session','Trial','FrameType'],axis=1).groupby(['TrialFrame','Orientation']).mean()
+    tmp = data.drop(['Session','Trial','FrameType'],axis=1)
+    avgPerOri = tmp.groupby(['TrialFrame','Orientation']).mean()
     avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
     avgPerOri = avgPerOri.reset_index()
-    semPerOri = data.drop(['Session','Trial','FrameType'],axis=1).groupby(['TrialFrame','Orientation']).sem()
+    semPerOri = tmp.groupby(['TrialFrame','Orientation']).sem()
     semPerOri = semPerOri.sort_values(['Orientation','TrialFrame'])
     semPerOri = semPerOri.reset_index()
     
     fig, axs = plt.subplots(2, 2)
-
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[0]]
-    tmp2 = semPerOri[semPerOri['Orientation']==globalParams.ori[0]]
-    tmpMean = np.squeeze(np.array(tmp.drop(['TrialFrame','Orientation'],axis=1)))
-    tmpSEM = np.squeeze(np.array(tmp2.drop(['TrialFrame','Orientation'],axis=1)))
-    axs[0, 0].plot(tmpTime,tmpMean)
-    axs[0, 0].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[0, 0].set_title('Orientation: '+str(globalParams.ori[0])+'°')
-
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[1]]
-    tmp2 = semPerOri[semPerOri['Orientation']==globalParams.ori[1]]
-    tmpMean = np.squeeze(np.array(tmp.drop(['TrialFrame','Orientation'],axis=1)))
-    tmpSEM = np.squeeze(np.array(tmp2.drop(['TrialFrame','Orientation'],axis=1)))
-    axs[0, 1].plot(tmpTime,tmpMean)
-    axs[0, 1].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[0, 1].set_title('Orientation: '+str(globalParams.ori[1])+'°')
-
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[2]]
-    tmp2 = semPerOri[semPerOri['Orientation']==globalParams.ori[2]]
-    tmpMean = np.squeeze(np.array(tmp.drop(['TrialFrame','Orientation'],axis=1)))
-    tmpSEM = np.squeeze(np.array(tmp2.drop(['TrialFrame','Orientation'],axis=1)))
-    axs[1, 0].plot(tmpTime,tmpMean)
-    axs[1, 0].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[1, 0].set_title('Orientation: '+str(globalParams.ori[2])+'°')
-
-    tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[3]]
-    tmp2 = semPerOri[semPerOri['Orientation']==globalParams.ori[3]]
-    tmpMean = np.squeeze(np.array(tmp.drop(['TrialFrame','Orientation'],axis=1)))
-    tmpSEM = np.squeeze(np.array(tmp2.drop(['TrialFrame','Orientation'],axis=1)))
-    axs[1, 1].plot(tmpTime,tmpMean)
-    axs[1, 1].fill_between(tmpTime,tmpMean-tmpSEM,tmpMean+tmpSEM)
-    axs[1, 1].set_title('Orientation: '+str(globalParams.ori[3])+'°')
-    
+    o = 0
+    for x in range(2):
+        for y in range(2):
+            tmp = avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]]
+            tmpD = tmp.drop(['TrialFrame','Orientation'],axis=1)
+            tmpMean = tmpD.values.flatten()
+            tmp2 = semPerOri[semPerOri['Orientation']==globalParams.ori[o]]
+            tmp2D = tmp2.drop(['TrialFrame','Orientation'],axis=1)
+            tmpSEM = tmp2D.values.flatten()
+            axs[x,y].plot(tmpTime,tmpMean)
+            axs[x,y].fill_between(tmpTime, tmpMean-tmpSEM, tmpMean+tmpSEM)
+            axs[x,y].set_title('Orientation: ' + str(globalParams.ori[o])
+                               + '°')
+            o +=1
     fig.suptitle('Pupil area')
 
 
+def postprocess_pupil(dataType, dataDate, dataMouse, dataDepth):
+    """ Postprocess pupil data."""
 
-# Preprocess pupil data
-def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth):
-
-    pupilfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-            dataMouse + '\\' + dataDepth + '\\pupil_manual.mat'
+    pupilfilepath = (globalParams.dataDir + dataType +'\\' + dataDate + '_'
+                     + dataMouse + '\\' + dataDepth + '\\pupil_manual.mat')
     
     if not os.path.isfile(pupilfilepath):
-        pupilfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-            dataMouse + '\\' + dataDepth + '\\pupil.mat'
+        pupilfilepath = (globalParams.dataDir + dataType +'\\' + dataDate + '_' 
+                         + dataMouse + '\\' + dataDepth + '\\pupil.mat')
     
     if os.path.isfile(pupilfilepath):
         
@@ -599,32 +556,28 @@ def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth):
             f = scipy.io.loadmat(pupilfilepath)
             tmp = f['pupil']
             val = tmp[0,0]
-            majorAxisLength = val['MajorAxisLength']
-            minorAxisLength = val['MinorAxisLength']
+            # majorAxisLength = val['MajorAxisLength']
+            # minorAxisLength = val['MinorAxisLength']
             pupilArea = val['pupilArea']
-            xCenter = val['Xc']
-            yCenter = val['Yc']
+            # xCenter = val['Xc']
+            # yCenter = val['Yc']
             
         elif dataType=='L4_LGN_targeted_axons':
             
             arrays = {}
             f = h5py.File(pupilfilepath,'r')
             for k, v in f.items():
-                arrays[k] = np.array(v)
-                
+                arrays[k] = np.array(v)    
             pupilArea = arrays['pupilArea'][0]
-            # Not sure of the following variables
-            # majorAxisLength = arrays['r_x'][0]
-            # minorAxisLength = arrays['r_y'][0]
-            # xCenter = (arrays['anterior_x'][0] + arrays['posterior_x'][0] + arrays['ventral_x'][0] + arrays['dorsal_x'][0])/4
-            # yCenter = (arrays['anterior_y'][0] + arrays['posterior_y'][0] + arrays['ventral_y'][0] + arrays['dorsal_y'][0])/4
             
-            # Discard the last 30 frames of each session (they occured after the end of the 200 trials)
-            pupilArea = np.reshape(pupilArea,(2430,-1),order='F')
-            pupilArea = np.delete(pupilArea,np.arange(2400,2430),axis=0)
+            # Discard the last 30 frames of each session (they occured after 
+            # the end of the 200 trials)
+            pupilArea = np.reshape(pupilArea, (2430,-1), order='F')
+            pupilArea = np.delete(pupilArea, np.arange(2400,2430), axis=0)
             pupilArea = pupilArea.flatten(order='F')
             
-        charPupil = pd.DataFrame(np.transpose(pupilArea),columns=['pupilArea'])
+        charPupil = pd.DataFrame(np.transpose(pupilArea), 
+                                 columns=['pupilArea'])
         # charPupil['majorAxisLength'] = np.transpose(majorAxisLength)
         # charPupil['minorAxisLength'] = np.transpose(minorAxisLength)
         # charPupil['xCenter'] = np.transpose(xCenter)
@@ -636,12 +589,11 @@ def postprocess_pupil(dataType,dataDate,dataMouse,dataDepth):
     return charPupil
 
 
-
-# Postprocess motion data
 def postprocess_motion(dataType,dataDate,dataMouse,dataDepth):
+    """Postprocess motion data."""
 
-    motionfilepath = globalParams.dataDir + dataType +'\\' + dataDate + '_' + \
-            dataMouse + '\\' + dataDepth + '\\motion.mat'
+    motionfilepath = (globalParams.dataDir + dataType +'\\' + dataDate + '_' 
+                      + dataMouse + '\\' + dataDepth + '\\motion.mat')
     
     if os.path.isfile(motionfilepath):
         
@@ -654,7 +606,8 @@ def postprocess_motion(dataType,dataDate,dataMouse,dataDepth):
         motAvg = val['mot_avg']
         
         if dataType=='L4_LGN_targeted_axons':
-            # Discard the last 30 frames of each session (they occured after the end of the 200 trials)
+            # Discard the last 30 frames of each session (they occured after
+            # the end of the 200 trials)
             z = []
             for i in range(5):
                 z.append(i*2400+np.arange(2400,2430,1))
@@ -669,7 +622,6 @@ def postprocess_motion(dataType,dataDate,dataMouse,dataDepth):
         motSVD = None
             
     return motSVD
-
 
 
 def loadBoutonData(dataType,dataSessions,dataDate,dataMouse,dataDepth,dataNeuropilSub,nBlankFrames,nStimFrames):
