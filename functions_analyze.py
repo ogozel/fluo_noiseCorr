@@ -479,10 +479,6 @@ def plot_noiseCorr_fdist(fluo, distROI, charROI, charTrials,
     thisCharTrials = charTrials.loc[idxSelFrames]
     thisCharROI = charROI.loc[idxSelROI]
     
-    # Pairwise distances
-    if not boolIdenticalTuning:
-        pairDist = np.triu(thisDistROI, k=1).flatten()
-    
     # For the histogram
     numBin = int(500/binSize)
     edges = np.linspace(startBin,500+startBin,numBin+1)
@@ -508,6 +504,8 @@ def plot_noiseCorr_fdist(fluo, distROI, charROI, charTrials,
             thisFluo_perOri = thisFluo_perOri[:,theseROI]
             pairDist = np.triu(thisDistROI[theseROI,:][:,theseROI], 
                                k=1).flatten()
+        else:
+            pairDist = np.triu(thisDistROI, k=1).flatten()
         
         # Mean-subtract the neural activity
         fluo_meanSub = thisFluo_perOri - np.mean(thisFluo_perOri, axis=0)
