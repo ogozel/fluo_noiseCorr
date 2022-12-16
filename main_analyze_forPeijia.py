@@ -20,12 +20,12 @@ import functions_analyze
 
 dataDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\U19data\\'
 
-peijiaDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Peijia\\'
+peijiaDir = 'C:\\Users\\olivi\\Dropbox\\Projects\\U19_project\\Peijia_project\\'
 
 
 #%% Parameters of the preprocessed data to analyze
 
-dataType = 'L4_cytosolic' # 'L4_cytosolic' or 'L23_thalamicBoutons'
+dataType = 'L23_thalamicBoutons' # 'L4_cytosolic' or 'L23_thalamicBoutons'
 idxDataset = 0
 # L4 good: 0,1,2,3,4,5,6,7,8,9
 # L2/3: 2 is weird (very high pairwise correlation at long distances)
@@ -39,14 +39,18 @@ dataMouse = dataSpecs.iloc[idxDataset]['Mouse']
 dataDepth = dataSpecs.iloc[idxDataset]['Depth']
 pixelSize = dataSpecs.iloc[idxDataset]['PixelSize']
 dataSessions = dataSpecs.iloc[idxDataset]['Sessions']
-dataNeuropilSub = globalParams.neuropilSub[3] # choose a neuropil factor, by default: globalParams.neuropilSub[3]
-# NB: dataType='L23_thalamicBoutons' with idxDataset=2 also has globalParams.neuropilSub[4]
+
+# Choose a neuropil factor, by default: globalParams.neuropilSub[3]
+# NB: dataType='L23_thalamicBoutons' with idxDataset=2 also has 
+#       globalParams.neuropilSub[4]
+dataNeuropilSub = globalParams.neuropilSub[3]
+
 
 
 #%% Load data
 
 filepath = globalParams.processedDataDir + dataType +'_' + dataDate + '_' + \
-        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '_threshDist10um.hdf'
+        dataMouse + '_' + dataDepth + '_neuropilF_' + dataNeuropilSub + '.hdf'
 
 fluo = pd.read_hdf(filepath,'fluo')
 charROI = pd.read_hdf(filepath,'charROI')
@@ -62,33 +66,45 @@ distROI = pd.read_hdf(filepath,'distROI')
 # OS ROIs only
 # Stimulus frames only
 
-binCenters, sortedPairCorr = functions_analyze.plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked=True,boolOS=True,boolIdenticalTuning=False,boolStimulus=True,startBin=5,binSize=5)
+binCenters, sortedPairCorr = functions_analyze.plot_noiseCorr_fdist(
+    fluo, distROI, charROI, charTrials, boolVisuallyEvoked=True, boolOS=True, 
+    boolIdenticalTuning=False, boolStimulus=True, startBin=5 ,binSize=5)
 
 # Save it in excel
 df = pd.DataFrame(sortedPairCorr)
-#writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist.xlsx',engine='openpyxl') # when the file does not exist yet
-writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist.xlsx',engine='openpyxl',mode='a') # once the file exists
+#writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist.xlsx',
+#                        engine='openpyxl') # when the file does not exist yet
+writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist.xlsx', 
+                        engine='openpyxl', mode='a') # once the file exists
 df.to_excel(writer, sheet_name='Dataset'+str(idxDataset))
 writer.save()
 
 
 
-#%% Noise pairwise correlation as a function of pairwise distance for similarly tuned ROIs
+#%% Noise pairwise correlation as a function of pairwise distance for similarly 
+# tuned ROIs
 # Neuropil factor = 0.75
 # 5um distance bins, first one is between 5um and 10um (centered in 7.5um)
 # OS ROIs only, separately for each orientation selectivity
 # Stimulus frames only
-# For pairs of OS ROIs with same orientation tuning (DeltaTheta=0), combined for all four orientations
+# For pairs of OS ROIs with same orientation tuning (DeltaTheta=0), combined
+# for all four orientations
 
-binCenters, sortedPairCorr = functions_analyze.plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked=True,boolOS=True,boolIdenticalTuning=True,boolStimulus=True,startBin=5,binSize=5)
+binCenters, sortedPairCorr = functions_analyze.plot_noiseCorr_fdist(
+    fluo, distROI, charROI, charTrials, boolVisuallyEvoked=True, boolOS=True,
+    boolIdenticalTuning=True, boolStimulus=True, startBin=5, binSize=5)
 
 
 # Save it in excel
 df = pd.DataFrame(sortedPairCorr)
-#writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist_sameTuning.xlsx',engine='openpyxl') # when the file does not exist yet
-writer = pd.ExcelWriter(peijiaDir+'L23cytosolic_pairCorr_fDist_sameTuning.xlsx',engine='openpyxl',mode='a') # once the file exists
-df.to_excel(writer, sheet_name='Dataset'+str(idxDataset))
-writer.save()
+# writer = pd.ExcelWriter(
+#     peijiaDir+'L23cytosolic_pairCorr_fDist_sameTuning.xlsx',
+#     engine='openpyxl') # when the file does not exist yet
+# writer = pd.ExcelWriter(
+#     peijiaDir+'L23cytosolic_pairCorr_fDist_sameTuning.xlsx',
+#     engine='openpyxl', mode='a') # once the file exists
+# df.to_excel(writer, sheet_name='Dataset'+str(idxDataset))
+# writer.save()
 
 
 #%% Select 5 ROIs
@@ -109,10 +125,22 @@ thisFluo_closeDT = np.array(fluo[close_diffTuning_ROI].loc[idxT135])
 thisFluo_farST = np.array(fluo[far_sameTuning_ROI].loc[idxT135])
 thisFluo_farDT = np.array(fluo[far_diffTuning_ROI].loc[idxT135])
 
-print('Correlation of ref with close sameTuning: '+str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),thisFluo_closeST- np.mean(thisFluo_closeST))[0,1]))
-print('Correlation of ref with close diffTuning: '+str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),thisFluo_closeDT- np.mean(thisFluo_closeDT))[0,1]))
-print('Correlation of ref with far sameTuning: '+str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),thisFluo_farST- np.mean(thisFluo_farST))[0,1]))
-print('Correlation of ref with far diffTuning: '+str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),thisFluo_farDT- np.mean(thisFluo_farDT))[0,1]))
+print('Correlation of ref with close sameTuning: ' + 
+      str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref), 
+                      thisFluo_closeST- np.mean(thisFluo_closeST))[0,1])
+      )
+print('Correlation of ref with close diffTuning: ' + 
+      str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),
+                      thisFluo_closeDT- np.mean(thisFluo_closeDT))[0,1])
+      )
+print('Correlation of ref with far sameTuning: ' + 
+      str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref),
+                      thisFluo_farST- np.mean(thisFluo_farST))[0,1])
+      )
+print('Correlation of ref with far diffTuning: ' +
+      str(np.corrcoef(thisFluo_ref - np.mean(thisFluo_ref), 
+                      thisFluo_farDT- np.mean(thisFluo_farDT))[0,1])
+      )
 
 
 theseTrials = np.arange(0,100,1) #np.array((3,4,12,13,20))
@@ -124,11 +152,13 @@ for i in range(len(theseTrials)):
     plt.plot(thisFluo_closeDT[thisT*nFramesPerTrial:(thisT+1)*nFramesPerTrial]);
     plt.plot(thisFluo_farST[thisT*nFramesPerTrial:(thisT+1)*nFramesPerTrial]);
     plt.plot(thisFluo_farDT[thisT*nFramesPerTrial:(thisT+1)*nFramesPerTrial]);
-    plt.legend(['ref','close sameTuning', 'close diffTuning','far sameTuning', 'far diffTuning'])
-    plt.title('Trial='+str(thisT));
+    plt.legend(['ref', 'close sameTuning', 'close diffTuning','far sameTuning',
+                'far diffTuning'])
+    plt.title('Trial=' + str(thisT));
     
 
-# Plot individual fluorescence traces for the 5 ROIs of interest, for a selection of trials
+# Plot individual fluorescence traces for the 5 ROIs of interest, for a 
+# selection of trials
 theseTrials = np.array((3,22,30,39,62,63,82,85))
 for i in range(len(theseTrials)):
     thisT = theseTrials[i]
@@ -144,12 +174,13 @@ for i in range(len(theseTrials)):
     axs[4].plot(thisFluo_farDT[thisT*nFramesPerTrial:(thisT+1)*nFramesPerTrial]);
     axs[4].set_title(str(far_diffTuning_ROI))
     #fig.suptitle('Trial='+str(thisT));
-    fig.savefig(peijiaDir+'trial'+str(thisT)+'.eps', format='eps')
+    fig.savefig(peijiaDir + 'trial' + str(thisT) + '.eps', format='eps')
 
 
-# Plot the average fluorescence trace for each orientation for the ROIs of interest
+# Plot average fluorescence trace for each orientation for the ROIs of interest
 thisROI = 100
-data = pd.concat([charTrials[['TrialFrame','Orientation']],fluo[thisROI]],axis=1)
+data = pd.concat([charTrials[['TrialFrame','Orientation']], fluo[thisROI]],
+                 axis=1)
 avgPerOri = data.groupby(['TrialFrame','Orientation']).mean()
 avgPerOri = avgPerOri.sort_values(['Orientation','TrialFrame'])
 avgPerOri = avgPerOri.reset_index()
@@ -160,12 +191,17 @@ stdPerOri = stdPerOri.reset_index()
 fig, axs = plt.subplots(2, 2, constrained_layout=True, sharey=True)
 axs = axs.ravel()
 for o in range(globalParams.nOri):
-    tmp_avg = np.squeeze(np.array(avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]].drop(['TrialFrame','Orientation'],axis=1)))
-    tmp_std = np.squeeze(np.array(stdPerOri[stdPerOri['Orientation']==globalParams.ori[o]].drop(['TrialFrame','Orientation'],axis=1)))
+    tmpAvg = avgPerOri[avgPerOri['Orientation']==globalParams.ori[o]].drop(
+        ['TrialFrame','Orientation'], axis=1)
+    tmp_avg = np.squeeze(np.array(tmpAvg))
+    tmpStd = stdPerOri[stdPerOri['Orientation']==globalParams.ori[o]].drop(
+        ['TrialFrame','Orientation'], axis=1)
+    tmp_std = np.squeeze(np.array(tmpStd))
     tmp_sem = tmp_std/np.sqrt(nTrialsPerOri)
-    axs[o].fill_between(np.arange(0,nFramesPerTrial),tmp_avg-tmp_sem,tmp_avg+tmp_sem)
-    axs[o].set_title(str(globalParams.ori[o])+'°')
-fig.suptitle('ROI '+str(thisROI))
+    axs[o].fill_between(np.arange(0, nFramesPerTrial),
+                        tmp_avg-tmp_sem, tmp_avg+tmp_sem)
+    axs[o].set_title(str(globalParams.ori[o]) + '°')
+fig.suptitle('ROI ' + str(thisROI))
 
 
 # Plot the ROIs
@@ -188,6 +224,7 @@ thisCharROI['VisuallyEvoked'].loc[far_sameTuning_ROI] = True
 thisCharROI['PrefOri'].loc[far_sameTuning_ROI] = 180
 thisCharROI['VisuallyEvoked'].loc[far_diffTuning_ROI] = True
 thisCharROI['PrefOri'].loc[far_diffTuning_ROI] = 270
-functions_postprocess.plot_ROIwithSelectivity(thisCharROI,positionROI,fluoPlaneWidth,fluoPlaneHeight)
+functions_postprocess.plot_ROIwithSelectivity(thisCharROI, positionROI,
+                                              fluoPlaneWidth, fluoPlaneHeight)
 
 

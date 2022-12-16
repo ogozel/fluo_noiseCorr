@@ -452,13 +452,19 @@ def plot_corr_fdist(fluo,distROI,startBin=2.5,binSize=10,title=None):
 
 # Plot noise pairwise correlations as a function of pairwise distance
 # binSize in [um]
-def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,boolOS,boolIdenticalTuning,boolStimulus,startBin=5,binSize=5):
+def plot_noiseCorr_fdist(fluo, distROI, charROI, charTrials, 
+                         boolVisuallyEvoked, boolOS, boolIdenticalTuning, 
+                         boolStimulus, startBin=5, binSize=5):
+    
+    '''Plot noise correlation as a function of pairwise distance'''
     
     if boolVisuallyEvoked:
         if boolOS:
+            # OS ROIs are visually evoked
             idxSelROI = np.where(charROI['OS']==True)[0]
         else:
-            idxSelROI = np.where((charROI['VisuallyEvoked']==True)&(charROI['OS']==False))[0]
+            idxSelROI = np.where((charROI['VisuallyEvoked']==True)
+                                 &(charROI['OS']==False))[0]
     else:
         idxSelROI = np.where(charROI['VisuallyEvoked']==False)[0]
         
@@ -475,36 +481,42 @@ def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,bool
     
     # Pairwise distances
     if not boolIdenticalTuning:
-        pairDist = np.triu(thisDistROI,k=1).flatten()
+        pairDist = np.triu(thisDistROI, k=1).flatten()
     
     # For the histogram
     numBin = int(500/binSize)
     edges = np.linspace(startBin,500+startBin,numBin+1)
-    binCenters = np.linspace(startBin + binSize/2, startBin + numBin*binSize-binSize/2,numBin)
+    binCenters = np.linspace(startBin + binSize/2, 
+                             startBin + numBin*binSize-binSize/2, numBin)
     
     # Initialize list to write the pairwise correlations
     sortedPairCorr = []
     
-    # Noise correlations, so we need to take trials of each orientation separately
+    # Noise correlations, so take trials of each orientation separately
     for o in range(globalParams.nOri):
         
         # Select trials of a given orientation
-        theseFrames = np.where(thisCharTrials['Orientation']==globalParams.ori[o])[0]
+        theseFrames = np.where(
+            thisCharTrials['Orientation']==globalParams.ori[o]
+            )[0]
         thisFluo_perOri = thisFluo[theseFrames]
         
         if boolIdenticalTuning:
-            theseROI = np.where(thisCharROI['PrefOri']==globalParams.ori[o])[0]
+            theseROI = np.where(
+                thisCharROI['PrefOri']==globalParams.ori[o]
+                )[0]
             thisFluo_perOri = thisFluo_perOri[:,theseROI]
-            pairDist = np.triu(thisDistROI[theseROI,:][:,theseROI],k=1).flatten()
+            pairDist = np.triu(thisDistROI[theseROI,:][:,theseROI], 
+                               k=1).flatten()
         
         # Mean-subtract the neural activity
-        fluo_meanSub = thisFluo_perOri - np.mean(thisFluo_perOri,axis=0)
+        fluo_meanSub = thisFluo_perOri - np.mean(thisFluo_perOri, axis=0)
         
         # Full neural correlation matrix
         corr_full = np.corrcoef(fluo_meanSub, rowvar=False)
         
         # Set lower triangular and diagonal elements to zero
-        pairCorr = np.triu(corr_full,k=1).flatten()
+        pairCorr = np.triu(corr_full, k=1).flatten()
         
         # Select only the non-zero pairwise correlations
         tmpIdx = np.where(pairCorr!=0)[0]
@@ -512,14 +524,16 @@ def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,bool
         thisPairCorr = pairCorr[tmpIdx]
         
         # Compute histogram
-        for i in range(0,numBin):
+        for i in range(0, numBin):
             startEdge = edges[i]
             endEdge = edges[i+1]
-            thisIdx = np.where((thisPairDist>startEdge) & (thisPairDist<=endEdge))
+            thisIdx = np.where((thisPairDist>startEdge) 
+                               & (thisPairDist<=endEdge))
             if o==0:
                 sortedPairCorr.append(thisPairCorr[thisIdx])
             else:
-                sortedPairCorr[i] = np.concatenate((sortedPairCorr[i],thisPairCorr[thisIdx]))
+                sortedPairCorr[i] = np.concatenate((sortedPairCorr[i],
+                                                    thisPairCorr[thisIdx]))
      
     # Mean and SEM of pairwise correlations for all orientations combined
     meanBinPairCorr = np.empty(numBin)
@@ -528,7 +542,8 @@ def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,bool
     semBinPairCorr[:] = np.NaN
     for i in range(0,numBin):
         meanBinPairCorr[i] = np.nanmean(sortedPairCorr[i])
-        semBinPairCorr[i] = np.nanstd(sortedPairCorr[i])/np.sqrt(len(sortedPairCorr[i]))
+        tmpStd = np.nanstd(sortedPairCorr[i])
+        semBinPairCorr[i] = tmpStd / np.sqrt(len(sortedPairCorr[i]))
 
     # Plot errorbars
     plt.figure()
@@ -538,7 +553,9 @@ def plot_noiseCorr_fdist(fluo,distROI,charROI,charTrials,boolVisuallyEvoked,bool
     #plt.xlim(0,250)
     plt.ylim(0,0.5)
     plt.grid(axis = 'y')
-    plt.title('VisuallyEvoked='+str(boolVisuallyEvoked)+', OS='+str(boolOS)+', IdenticalTuning='+str(boolIdenticalTuning)+', StimulusFrames='+str(boolStimulus))
+    plt.title('VisuallyEvoked=' + str(boolVisuallyEvoked) + ', OS=' + 
+              str(boolOS) + ', IdenticalTuning=' + str(boolIdenticalTuning) +
+              ', StimulusFrames=' + str(boolStimulus))
     #plt.savefig('corr_fdist.eps', format='eps')
     
     return binCenters, sortedPairCorr
