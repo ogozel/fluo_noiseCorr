@@ -13,6 +13,6 @@ NB: The sampling frequency for fluorescence recordings differs between datasets,
 
 The scripts to preprocess the datastes are the following:
 * main_postprocess.py : this file contains the full preprocessing pipeline, combines all the available data files, and save Pandas Dataframes into a single file to make subsequent analysis convenient. Before running the script, the folder path has to be modified appropriately and a few decisions have to be made concerning which recording session to preprocess (section "Choose parameters of the data to postprocess" in the script). Nothing else should be modified.
-* globalParams.py :
+* globalParams.py : this file contains the global parameters for the datasets. Only the paths to data (projectDir, dataDir, and processedDataDir) have to be modified appropriately.
 * functions_postprocess.py :
 
