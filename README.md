@@ -11,6 +11,9 @@ Each recording session consists of:
 * (optional) pupil file containing several parameters (such as area, long/short axis length, etc) during the whole recording
 NB: The sampling frequency for fluorescence recordings differs between datasets, and is not identical to the behavioral sampling frequency.
 
+Script that summarizes all the available datasets:
+* dataSpecs.py: this file generates .hdf files that summarize the main chracteristics of all available datasets (L4 cytosolic, L2/3 and L2/3-targeting thalamic boutons, L4-targeting thalamic boutons). If new datasets become available, add the corresponding characteristics in this script, and rerun to get updated .hdf files. The dataDir has to be modified appropriately.
+
 The scripts to postprocess the datastes are the following:
 * main_postprocess.py : this file contains the full preprocessing pipeline, combines all the available data files, and save Pandas Dataframes into a single file to make subsequent analysis convenient. Before running the script, the folder path has to be modified appropriately and a few decisions have to be made concerning which recording session to preprocess (section "Choose parameters of the data to postprocess" in the script). Nothing else should be modified.
 * globalParams.py : this file contains the global parameters for the datasets. Only the paths to data (projectDir, dataDir, and processedDataDir) have to be modified appropriately.
